@@ -1,0 +1,57 @@
+name: MoonARFF verification
+on: [push, pull_request]
+permissions:
+  contents: read
+env:
+  MOONBIT_INSTALL_VERSION: "0.10.16+b1a0e846e"
+jobs:
+  targets:
+    name: target-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [wasm-gc, wasm, js, native]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned official MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moon-install.sh
+          bash /tmp/moon-install.sh
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon version --all
+      - run: moon update
+      - run: moon check --target "${{ matrix.target }}" --deny-warn
+      - run: moon build --target "${{ matrix.target }}" --deny-warn
+      - if: matrix.target != 'wasm'
+        run: moon test --target "${{ matrix.target }}" --deny-warn
+      - if: matrix.target != 'wasm'
+        run: |
+          moon run examples/ingestion --target "${{ matrix.target }}" --deny-warn
+          moon run examples/curation --target "${{ matrix.target }}" --deny-warn
+          moon run examples/inspection --target "${{ matrix.target }}" --deny-warn
+  interoperability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned official MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/moon-install.sh
+          bash /tmp/moon-install.sh
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon update
+      - run: moon info && moon fmt --check
+      - run: git diff --exit-code -- '*.mbti'
+      - run: python -m pip install liac-arff==2.5.0
+      - run: python scripts/differential.py
+      - run: ORACLE_TARGET=wasm-gc python scripts/differential.py
+      - run: git diff --exit-code
