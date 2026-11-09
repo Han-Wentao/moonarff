@@ -98,7 +98,6 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
   if self.pos == self.chars.length() {
     return { kind: End, text: "", quoted: false, line, column, }
   }
-  let start = self.pos
   let c = self.take()
   let simple = match c {
     ',' => Some(Comma)
@@ -119,7 +118,7 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
     return { kind, text: "", quoted: false, line, column, }
   }
   let quoted = c == '\'' || c == '"'
-  let out = StringBuilder()
+  let out = BoundedText::new(self.max_token)
   if !quoted {
     out.write_char(c)
   }
@@ -154,15 +153,9 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
     } else {
       out.write_char(ch)
     }
-    if self.pos - start > self.max_token {
-      raise Limit("token budget")
-    }
   }
   if !closed {
     raise Syntax(line, column, "unclosed quoted token")
-  }
-  if self.pos - start > self.max_token {
-    raise Limit("token budget")
   }
   if quoted &&
     self.pos < self.chars.length() &&

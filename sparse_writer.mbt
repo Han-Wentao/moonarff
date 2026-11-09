@@ -5,7 +5,7 @@ pub fn write_sparse(
   limits~ : Limits = Limits::default(),
 ) -> String raise ArffError {
   validate(data, limits~)
-  let out = StringBuilder()
+  let out = BoundedText::new(limits.max_input)
   write_header(data.schema, out)
   for row in data.rows {
     out.write_char('{')

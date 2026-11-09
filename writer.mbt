@@ -20,7 +20,7 @@ fn quote_word(text : String) -> String {
 }
 
 ///|
-fn write_header(schema : Schema, out : StringBuilder) -> Unit {
+fn write_header(schema : Schema, out : BoundedText) -> Unit raise ArffError {
   out.write_string("@relation " + quote_word(schema.relation) + "\n\n")
   for attribute in schema.attributes {
     out.write_string("@attribute " + quote_word(attribute.name) + " ")
@@ -59,7 +59,7 @@ pub fn write(
   limits~ : Limits = Limits::default(),
 ) -> String raise ArffError {
   validate(data, limits~)
-  let out = StringBuilder()
+  let out = BoundedText::new(limits.max_input)
   write_header(data.schema, out)
   for row in data.rows {
     for i, cell in row.values {

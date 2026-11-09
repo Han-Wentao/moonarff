@@ -67,6 +67,13 @@ pub fn Limits::default() -> Limits {
 
 ///|
 fn Limits::check(self : Limits) -> Unit raise ArffError {
+  if self.max_input > 268435456 ||
+    self.max_attributes > 65536 ||
+    self.max_token > 16777216 {
+    raise Limit(
+      "supported hard caps: input 256 Mi UTF-16 units, attributes 65536, token 16 Mi units",
+    )
+  }
   if self.max_input < 1 ||
     self.max_attributes < 1 ||
     self.max_rows < 0 ||
