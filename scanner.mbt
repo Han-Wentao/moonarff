@@ -99,6 +99,9 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
     return { kind: End, text: "", quoted: false, line, column, }
   }
   let c = self.take()
+  if c == '\\' {
+    raise Syntax(line, column, "quote words containing escapes")
+  }
   let simple = match c {
     ',' => Some(Comma)
     '{' => Some(Open)
@@ -127,6 +130,9 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
     let ch = self.chars[self.pos]
     if !quoted && delimiter(ch) {
       break
+    }
+    if !quoted && (ch == '\'' || ch == '"') {
+      raise Syntax(self.line, self.column, "quote must begin a token")
     }
     ignore(self.take())
     if quoted && ch == c {

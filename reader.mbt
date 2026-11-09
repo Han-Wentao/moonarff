@@ -80,10 +80,11 @@ fn parse_cell(attribute : Attribute, token : Token) -> Cell raise ArffError {
 
 ///|
 pub struct Reader {
-  schema : Schema
+  priv schema : Schema
   priv scanner : Scanner
   priv limits : Limits
   priv mut count : Int32
+  priv mut failed : Bool
   priv mut ended : Bool
 }
 
@@ -94,12 +95,12 @@ pub fn Reader::new(
 ) -> Reader raise ArffError {
   let scanner = Scanner::new(source, limits~)
   let schema = parse_header(scanner, limits)
-  { schema, scanner, limits, count: 0, ended: false, }
+  { schema, scanner, limits, count: 0, failed: false, ended: false, }
 }
 
 ///|
 /// Repeated next after EOF returns None. Invalid rows raise with no partial row returned.
-pub fn Reader::next(self : Reader) -> Record? raise ArffError {
+fn Reader::read_next(self : Reader) -> Record? raise ArffError {
   if self.ended {
     return None
   }
@@ -164,4 +165,22 @@ pub fn parse(
     rows.push(row)
   }
   { schema: reader.schema, rows, }
+}
+
+///|
+/// Return an independent schema snapshot. Reader errors are terminal to avoid
+/// interpreting the tail of a malformed row as a new record after recovery.
+pub fn Reader::schema(self : Reader) -> Schema {
+  copy_schema(self.schema)
+}
+
+///|
+pub fn Reader::next(self : Reader) -> Record? raise ArffError {
+  if self.failed {
+    raise Invalid("reader is failed; construct a new reader")
+  }
+  errdefer {
+    self.failed = true
+  }
+  self.read_next()
 }
