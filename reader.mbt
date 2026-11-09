@@ -43,7 +43,11 @@ fn decimal(text : String) -> Double raise ArffError {
   if !finite(value) {
     raise Invalid("non-finite decimal")
   }
-  value
+  if value == 0.0 && text[0] == 45 {
+    -0.0
+  } else {
+    value
+  }
 }
 
 ///|

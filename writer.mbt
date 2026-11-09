@@ -47,7 +47,7 @@ fn write_header(schema : Schema, out : StringBuilder) -> Unit {
 fn cell_text(value : Cell) -> String {
   match value {
     Missing => "?"
-    Number(n) => n.to_string()
+    Number(n) => if n == 0.0 && 1.0 / n < 0.0 { "-0.0" } else { n.to_string() }
     Label(s) => quote_word(s)
   }
 }
