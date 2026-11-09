@@ -117,6 +117,11 @@ pub fn Reader::next(self : Reader) -> Record? raise ArffError {
   for token in rest {
     tokens.push(token)
   }
+  if first.kind == Open {
+    let row = sparse_record(self.schema, tokens)
+    self.count += 1
+    return Some(row)
+  }
   let values : Array[Cell] = []
   let mut i = 0
   for column in 0..<width {
