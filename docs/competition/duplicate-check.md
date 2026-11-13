@@ -38,3 +38,12 @@ GitHub 仓库查询 `arff language:MoonBit`、`weka language:MoonBit`、`arff Mo
 用实际用户输入反问：已有项目能否直接读取带 @relation/@attribute、数值/类别/字符串、密集/稀疏混合记录，保留省略默认值与显式缺失，完成模式变换并写回，再按声明域生成可逆特征？记录范围内未见成熟直接替代。若后来发现这种替代，应重新审查必要性，不能只改名字继续。
 
 不支持 date、relational、实例权重、文本省略字典推断、完整 Weka 扩展或机器学习训练。发布前再次执行核心 MoonCakes 与 GitHub 查询，复核结果保存在独立审计记录。索引延迟、私有仓库、搜索上限和未遍历的源码路径仍构成限制；不保证全球唯一，不声称组委会已认可。
+
+
+## 2026-11-13 格式补全复核
+
+本次保留现有项目，补全 Date、嵌套 Relational、实例权重及增量流式接口；不是重新选题。重新执行 GitHub 的 ARFF/Weka 仓库检索与 relation+attribute、parse_arff、loadarff 代码检索（per_page=100，均无 incomplete 结果）。ARFF 仓库检索仅返回本项目；其他四项未返回候选。
+
+MoonCakes 重跑 arff、weka、parse_arff、loadarff、libsvm、attribute relation（limit=100）。前三项只返回本模块0.1.0，loadarff/libsvm没有结果。attribute relation 的17个结果为 Office/XML、ER图、ORM、文档结构等方向，从其公开功能说明未见 ARFF 数据集协议的直接替代能力；关键词中的 relation 不等于 Weka Relational。保留此前 MoonFrame/pandas 的表格处理与 moonsplit 的数据集划分边界比较，不把这些相邻方向说成不存在。
+
+本轮对照 Weka 3.8.6 的格式语义并执行真实 Java 双向测试；这是跨语言标准参考，不作为 MoonBit 内重复选题的证据。公开索引和先前源码阅读范围有限，结论仅为记录范围内没有发现直接成熟替代，不保证全球唯一。

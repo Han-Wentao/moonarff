@@ -1,6 +1,6 @@
 name = "Han-Wentao/moonarff"
 
-version = "0.1.0"
+version = "0.2.0"
 
 readme = "README.md"
 
@@ -10,6 +10,6 @@ license = "Apache-2.0"
 
 keywords = [ "arff", "weka", "dataset", "sparse" ]
 
-description = "Typed bounded ARFF datasets and schema-preserving feature interchange"
+description = "ARFF dates relational instances weights and bounded UTF-8 streaming"
 
 preferred_target = "wasm-gc"
