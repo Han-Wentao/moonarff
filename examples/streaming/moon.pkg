@@ -1,0 +1,6 @@
+import {
+  "Han-Wentao/moonarff" @arff,
+  "moonbitlang/core/encoding/utf8",
+}
+
+pkgtype(kind: "executable")

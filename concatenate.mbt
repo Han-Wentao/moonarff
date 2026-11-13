@@ -26,6 +26,18 @@ pub fn concatenate(
     let kind = match (a.kind, b.kind) {
       (Numeric, Numeric) => Numeric
       (Text, Text) => Text
+      (Date(a), Date(b)) =>
+        if a == b {
+          Date(a)
+        } else {
+          raise Invalid("date formats differ")
+        }
+      (Relational(a), Relational(b)) =>
+        if a == b {
+          Relational(a.map(copy_attribute))
+        } else {
+          raise Invalid("nested relation schemas differ")
+        }
       (Nominal(xs), Nominal(ys)) => {
         if !union_domains && xs != ys {
           raise Invalid(

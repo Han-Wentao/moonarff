@@ -18,6 +18,8 @@ pub(all) struct CategoryCount {
 ///|
 pub(all) enum ColumnSummary {
   NumericProfile(NumericSummary)
+  DateProfile(NumericSummary)
+  RelationalProfile(Int32, Int32, Int32)
   NominalProfile(Int32, Array[CategoryCount])
   TextProfile(Int32, Int32, Int32)
 } derive(Eq, Debug)
@@ -42,7 +44,7 @@ fn numeric_summary(
   for row in rows {
     match row.values[index] {
       Missing => missing += 1
-      Number(x) => {
+      Number(x) | DateValue(x) => {
         count += 1
         if x < minimum {
           minimum = x
@@ -105,6 +107,23 @@ pub fn profile(
   for i, attribute in data.schema.attributes {
     let summary = match attribute.kind {
       Numeric => NumericProfile(numeric_summary(data.rows, i))
+      Date(_) => DateProfile(numeric_summary(data.rows, i))
+      Relational(_) => {
+        let mut missing = 0
+        let mut present = 0
+        let mut nested = 0
+        for row in data.rows {
+          match row.values[i] {
+            Missing => missing += 1
+            Relation(rows) => {
+              present += 1
+              nested += rows.length()
+            }
+            _ => raise Invalid("relational profile type mismatch")
+          }
+        }
+        RelationalProfile(missing, present, nested)
+      }
       Nominal(labels) => {
         let counts : Map[String, Int32] = Map([])
         let mut missing = 0

@@ -34,7 +34,9 @@ pub fn features_csv(
         out.write_char(',')
       }
       if !batch.missing[r][j] {
-        out.write_string(cell_text(Number(value)))
+        out.write_string(
+          cell_text(Number(value), { name: "feature", kind: Numeric, }, limits),
+        )
       }
     }
     out.write_string("\r\n")

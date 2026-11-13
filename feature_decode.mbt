@@ -17,6 +17,7 @@ pub fn decode_features(
       } else {
         match attribute.kind {
           Numeric => Number(encoded[start])
+          Date(_) => DateValue(encoded[start])
           Nominal(labels) => {
             let mut selected = 0
             for j, _ in labels {
@@ -26,13 +27,13 @@ pub fn decode_features(
             }
             Label(labels[selected])
           }
-          Text =>
+          Text | Relational(_) =>
             raise Unsupported("feature plan cannot contain string columns")
         }
       }
       values.push(cell)
     }
-    rows.push({ values, })
+    rows.push({ values, weight: 1.0, })
   }
   let result = { schema: copy_schema(plan.schema), rows, }
   validate(result, limits~)

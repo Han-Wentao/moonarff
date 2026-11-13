@@ -3,3 +3,7 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/debug",
 }
+
+import {
+  "moonbitlang/core/encoding/utf8",
+} for "wbtest"

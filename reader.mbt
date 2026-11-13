@@ -51,39 +51,129 @@ fn decimal(text : String) -> Double raise ArffError {
 }
 
 ///|
-fn parse_cell(attribute : Attribute, token : Token) -> Cell raise ArffError {
+fn parse_cell(
+  attribute : Attribute,
+  token : Token,
+  budget : FormatBudget,
+  depth : Int32,
+) -> Cell raise ArffError {
   let text = require_word(token, "cell value required")
   if text == "?" && !token.quoted {
     return Missing
   }
   match attribute.kind {
-    Numeric => {
-      let number = decimal(text) catch {
-        _ =>
-          raise Syntax(token.line, token.column, "invalid finite numeric value")
-      }
-      Number(number)
-    }
+    Numeric => Number(decimal(text))
+    Date(pattern) => DateValue(parse_date(text, pattern))
     Text => Label(text)
     Nominal(labels) => {
       if !labels.contains(text) {
+        raise Syntax(token.line, token.column, "value outside nominal domain")
+      }
+      Label(text)
+    }
+    Relational(attributes) => {
+      if !token.quoted {
         raise Syntax(
           token.line,
           token.column,
-          "value is outside nominal domain",
+          "relational value must be quoted",
         )
       }
-      Label(text)
+      if depth >= 16 {
+        raise Limit("relational value nesting exceeds 16")
+      }
+      let scanner = Scanner::new(text, limits=budget.limits)
+      let rows = []
+      while read_record_tokens(scanner, budget.limits) is Some(tokens) {
+        rows.push(parse_record_tokens(attributes, tokens, budget, depth + 1))
+      }
+      Relation(rows)
     }
   }
 }
 
 ///|
+fn read_record_tokens(
+  scanner : Scanner,
+  limits : Limits,
+) -> Array[Token]? raise ArffError {
+  let mut first = scanner.next()
+  while first.kind == Newline {
+    first = scanner.next()
+  }
+  if first.kind == End {
+    return None
+  }
+  let tokens = [first]
+  for token in line_tokens(scanner, limits.max_attributes * 3 + 7) {
+    tokens.push(token)
+  }
+  Some(tokens)
+}
+
+///|
+fn parse_record_tokens(
+  attributes : Array[Attribute],
+  input : Array[Token],
+  budget : FormatBudget,
+  depth : Int32,
+) -> Record raise ArffError {
+  if depth > 16 {
+    raise Limit("relational nesting exceeds 16")
+  }
+  if budget.rows >= budget.limits.max_rows ||
+    attributes.length() > budget.limits.max_cells - budget.cells {
+    raise Limit("total nested row/cell budget")
+  }
+  budget.rows += 1
+  budget.cells += attributes.length()
+  let tokens = input.copy()
+  let n = tokens.length()
+  let mut weight = 1.0
+  if n >= 5 &&
+    tokens[n - 4].kind == Comma &&
+    tokens[n - 3].kind == Open &&
+    tokens[n - 1].kind == Close {
+    weight = decimal(require_word(tokens[n - 2], "instance weight required"))
+    for _ in 0..<4 {
+      ignore(tokens.pop())
+    }
+  }
+  let first = tokens[0]
+  if first.kind == Open {
+    return sparse_record(attributes, tokens, weight, budget, depth)
+  }
+  let values = []
+  let mut i = 0
+  for column in 0..<attributes.length() {
+    if i >= tokens.length() {
+      raise Syntax(first.line, first.column, "record has too few cells")
+    }
+    values.push(parse_cell(attributes[column], tokens[i], budget, depth))
+    i += 1
+    if column + 1 < attributes.length() {
+      if i >= tokens.length() || tokens[i].kind != Comma {
+        raise Syntax(first.line, first.column, "comma required between cells")
+      }
+      i += 1
+    }
+  }
+  if i != tokens.length() {
+    raise Syntax(
+      first.line,
+      first.column,
+      "extra cells or malformed instance weight",
+    )
+  }
+  { values, weight, }
+}
+
+///|
+/// In-memory pull reader. Use StreamReader for bounded chunk-fed incremental input.
 pub struct Reader {
   priv schema : Schema
   priv scanner : Scanner
-  priv limits : Limits
-  priv mut count : Int32
+  priv budget : FormatBudget
   priv mut failed : Bool
   priv mut ended : Bool
 }
@@ -95,81 +185,29 @@ pub fn Reader::new(
 ) -> Reader raise ArffError {
   let scanner = Scanner::new(source, limits~)
   let schema = parse_header(scanner, limits)
-  { schema, scanner, limits, count: 0, failed: false, ended: false, }
+  {
+    schema,
+    scanner,
+    budget: FormatBudget::new(limits),
+    failed: false,
+    ended: false,
+  }
 }
 
 ///|
-/// Repeated next after EOF returns None. Invalid rows raise with no partial row returned.
-fn Reader::read_next(self : Reader) -> Record? raise ArffError {
-  if self.ended {
-    return None
-  }
-  let mut first = self.scanner.next()
-  while first.kind == Newline {
-    first = self.scanner.next()
-  }
-  if first.kind == End {
-    self.ended = true
-    return None
-  }
-  let width = self.schema.attributes.length()
-  if self.count >= self.limits.max_rows ||
-    self.count >= self.limits.max_cells / width {
-    raise Limit("expanded row/cell budget")
-  }
-  let rest = line_tokens(self.scanner, self.limits.max_attributes * 3 + 3)
-  let tokens = [first]
-  for token in rest {
-    tokens.push(token)
-  }
-  if first.kind == Open {
-    let row = sparse_record(self.schema, tokens)
-    self.count += 1
-    return Some(row)
-  }
-  let values : Array[Cell] = []
-  let mut i = 0
-  for column in 0..<width {
-    if i >= tokens.length() {
-      raise Syntax(first.line, first.column, "record has too few cells")
-    }
-    values.push(parse_cell(self.schema.attributes[column], tokens[i]))
-    i += 1
-    if column + 1 < width {
-      if i >= tokens.length() || tokens[i].kind != Comma {
-        raise Syntax(first.line, first.column, "comma required between cells")
-      }
-      i += 1
-    }
-  }
-  if i != tokens.length() {
-    raise Syntax(
-      first.line,
-      first.column,
-      "record has extra cells or unsupported instance weight",
-    )
-  }
-  self.count += 1
-  Some({ values, })
-}
-
-///|
-/// Fully materialize a bounded dataset. Reader::next avoids retaining previous rows.
 pub fn parse(
   source : String,
   limits~ : Limits = Limits::default(),
 ) -> Dataset raise ArffError {
   let reader = Reader::new(source, limits~)
-  let rows : Array[Record] = []
+  let rows = []
   while reader.next() is Some(row) {
     rows.push(row)
   }
-  { schema: reader.schema, rows, }
+  { schema: reader.schema(), rows, }
 }
 
 ///|
-/// Return an independent schema snapshot. Reader errors are terminal to avoid
-/// interpreting the tail of a malformed row as a new record after recovery.
 pub fn Reader::schema(self : Reader) -> Schema {
   copy_schema(self.schema)
 }
@@ -179,8 +217,18 @@ pub fn Reader::next(self : Reader) -> Record? raise ArffError {
   if self.failed {
     raise Invalid("reader is failed; construct a new reader")
   }
+  if self.ended {
+    return None
+  }
   errdefer {
     self.failed = true
   }
-  self.read_next()
+  match read_record_tokens(self.scanner, self.budget.limits) {
+    None => {
+      self.ended = true
+      None
+    }
+    Some(tokens) =>
+      Some(parse_record_tokens(self.schema.attributes, tokens, self.budget, 0))
+  }
 }

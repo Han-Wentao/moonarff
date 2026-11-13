@@ -4,6 +4,8 @@ pub(all) enum AttributeType {
   Numeric
   Nominal(Array[String])
   Text
+  Date(String)
+  Relational(Array[Attribute])
 } derive(Eq, Debug)
 
 ///|
@@ -17,6 +19,8 @@ pub(all) enum Cell {
   Missing
   Number(Double)
   Label(String)
+  DateValue(Double)
+  Relation(Array[Record])
 } derive(Eq, Debug)
 
 ///|
@@ -28,6 +32,7 @@ pub(all) struct Schema {
 ///|
 pub(all) struct Record {
   values : Array[Cell]
+  weight : Double
 } derive(Eq, Debug)
 
 ///|
@@ -104,19 +109,48 @@ pub fn validate_schema(
   limits~ : Limits = Limits::default(),
 ) -> Unit raise ArffError {
   limits.check()
-  if schema.relation.length() == 0 {
-    raise Invalid("empty relation name")
+  if schema.relation.length() == 0 ||
+    schema.relation.length() > limits.max_token {
+    raise Invalid("invalid relation name")
   }
-  if schema.attributes.length() == 0 {
+  let budget = FormatBudget::new(limits)
+  validate_attributes(schema.attributes, budget, 0)
+}
+
+///|
+priv struct FormatBudget {
+  limits : Limits
+  mut attributes : Int32
+  mut rows : Int32
+  mut cells : Int32
+}
+
+///|
+fn FormatBudget::new(limits : Limits) -> FormatBudget {
+  { limits, attributes: 0, rows: 0, cells: 0, }
+}
+
+///|
+fn validate_attributes(
+  attributes : Array[Attribute],
+  budget : FormatBudget,
+  depth : Int32,
+) -> Unit raise ArffError {
+  if depth > 16 {
+    raise Limit("relational nesting depth exceeds 16")
+  }
+  if attributes.is_empty() {
     raise Invalid("schema needs at least one attribute")
   }
-  if schema.attributes.length() > limits.max_attributes {
-    raise Limit("attribute budget")
+  if attributes.length() > budget.limits.max_attributes - budget.attributes {
+    raise Limit("total nested attribute budget")
   }
+  budget.attributes += attributes.length()
   let seen : Map[String, Bool] = Map([])
-  for attribute in schema.attributes {
-    if attribute.name.length() == 0 {
-      raise Invalid("empty attribute name")
+  for attribute in attributes {
+    if attribute.name.is_empty() ||
+      attribute.name.length() > budget.limits.max_token {
+      raise Invalid("invalid attribute name")
     }
     if seen.contains(attribute.name) {
       raise Invalid("duplicate attribute: " + attribute.name)
@@ -124,7 +158,7 @@ pub fn validate_schema(
     seen[attribute.name] = true
     match attribute.kind {
       Nominal(labels) => {
-        if labels.length() == 0 {
+        if labels.is_empty() {
           raise Invalid("empty nominal domain")
         }
         let domain : Map[String, Bool] = Map([])
@@ -132,46 +166,71 @@ pub fn validate_schema(
           if domain.contains(label) {
             raise Invalid("duplicate nominal label: " + label)
           }
-          domain[label] = true
-          if label.length() > limits.max_token {
+          if label.length() > budget.limits.max_token {
             raise Limit("nominal token budget")
           }
+          domain[label] = true
         }
       }
+      Date(pattern) => ignore(date_parts(pattern))
+      Relational(children) => validate_attributes(children, budget, depth + 1)
       _ => ()
     }
-    if attribute.name.length() > limits.max_token {
-      raise Limit("attribute name budget")
-    }
-  }
-  if schema.relation.length() > limits.max_token {
-    raise Limit("relation name budget")
   }
 }
 
 ///|
-pub fn validate_record(schema : Schema, row : Record) -> Unit raise ArffError {
-  if row.values.length() != schema.attributes.length() {
+fn validate_row(
+  attributes : Array[Attribute],
+  row : Record,
+  budget : FormatBudget,
+  depth : Int32,
+) -> Unit raise ArffError {
+  if depth > 16 {
+    raise Limit("relational nesting depth exceeds 16")
+  }
+  if row.values.length() != attributes.length() {
     raise Invalid("record width differs from schema")
   }
+  if !finite(row.weight) {
+    raise Invalid("instance weight must be finite")
+  }
+  if budget.rows >= budget.limits.max_rows ||
+    attributes.length() > budget.limits.max_cells - budget.cells {
+    raise Limit("total nested row/cell budget")
+  }
+  budget.rows += 1
+  budget.cells += attributes.length()
   for i, cell in row.values {
-    match (schema.attributes[i].kind, cell) {
+    match (attributes[i].kind, cell) {
       (_, Missing) => ()
       (Numeric, Number(n)) =>
         if !finite(n) {
           raise Invalid("non-finite numeric cell")
         }
-      (Text, Label(_)) => ()
-      (Nominal(labels), Label(value)) =>
-        if !labels.contains(value) {
-          raise Invalid("unknown nominal value: " + value)
+      (Date(pattern), DateValue(n)) => ignore(format_date(n, pattern))
+      (Text, Label(s)) =>
+        if s.length() > budget.limits.max_token {
+          raise Limit("text token budget")
+        }
+      (Nominal(labels), Label(s)) =>
+        if !labels.contains(s) {
+          raise Invalid("unknown nominal value")
+        }
+      (Relational(children), Relation(rows)) =>
+        for child in rows {
+          validate_row(children, child, budget, depth + 1)
         }
       _ =>
-        raise Invalid(
-          "cell type mismatch at attribute " + schema.attributes[i].name,
-        )
+        raise Invalid("cell type mismatch at attribute " + attributes[i].name)
     }
   }
+}
+
+///|
+pub fn validate_record(schema : Schema, row : Record) -> Unit raise ArffError {
+  validate_schema(schema)
+  validate_row(schema.attributes, row, FormatBudget::new(Limits::default()), 0)
 }
 
 ///|
@@ -180,18 +239,9 @@ pub fn validate(
   limits~ : Limits = Limits::default(),
 ) -> Unit raise ArffError {
   validate_schema(data.schema, limits~)
-  let width = data.schema.attributes.length()
-  if data.rows.length() > limits.max_rows ||
-    (width > 0 && data.rows.length() > limits.max_cells / width) {
-    raise Limit("expanded row/cell budget")
-  }
+  let budget = FormatBudget::new(limits)
   for row in data.rows {
-    validate_record(data.schema, row)
-    for cell in row.values {
-      if cell is Label(s) && s.length() > limits.max_token {
-        raise Limit("cell token budget")
-      }
-    }
+    validate_row(data.schema.attributes, row, budget, 0)
   }
 }
 

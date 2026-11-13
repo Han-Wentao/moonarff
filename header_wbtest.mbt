@@ -13,7 +13,7 @@ test "header rejects malformed grammar and unsupported attribute kinds" {
   for
     source in [
       "@attribute x numeric\n@data", "@relation x\n@data", "@relation x\n@attribute x {a,}\n@data",
-      "@relation x\n@attribute x date\n@data", "@relation x\n@attribute x numeric\n@attribute x string\n@data",
+      "@relation x\n@attribute x unknown_type\n@data", "@relation x\n@attribute x numeric\n@attribute x string\n@data",
     ] {
     let bad = try {
       ignore(read_schema(source))

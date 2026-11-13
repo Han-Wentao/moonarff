@@ -17,7 +17,7 @@ test "adversarial grammar and unsupported constructs fail deterministically" {
   }
   for
     source in [
-      "@relation r\n@attribute x date\n@data\n", "@relation r\n@attribute x relational\n@data\n",
+      "@relation r\n@attribute x date 'yyyy-QQ'\n@data\n", "@relation r\n@attribute x relational\n@data\n",
       "@relation r\n@attribute x {a,a}\n@data\n", "@relation r\n@attribute x numeric\n@attribute x numeric\n@data\n",
     ] {
     let rejected = try {

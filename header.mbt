@@ -51,16 +51,26 @@ fn attribute_line(tokens : Array[Token]) -> Attribute raise ArffError {
   let name = require_word(tokens[1], "attribute name required")
   let kind = tokens[2]
   if kind.kind == Word && !kind.quoted {
+    let type_name = keyword(kind.text)
+    if type_name == "date" {
+      if tokens.length() > 4 {
+        raise Syntax(kind.line, kind.column, "date takes one optional format")
+      }
+      let pattern = if tokens.length() == 4 {
+        require_word(tokens[3], "date format required")
+      } else {
+        default_date_format()
+      }
+      ignore(date_parts(pattern))
+      return { name, kind: Date(pattern), }
+    }
     if tokens.length() != 3 {
       raise Syntax(kind.line, kind.column, "unexpected attribute suffix")
     }
     match keyword(kind.text) {
       "numeric" | "real" | "integer" => return { name, kind: Numeric, }
       "string" => return { name, kind: Text, }
-      "date" | "relational" =>
-        raise Unsupported(
-          "date and relational ARFF attributes are outside this release",
-        )
+      "relational" => return { name, kind: Relational([]), }
       _ => raise Syntax(kind.line, kind.column, "unknown attribute type")
     }
   }
@@ -147,7 +157,7 @@ fn parse_header(scanner : Scanner, limits : Limits) -> Schema raise ArffError {
         if attributes.length() >= limits.max_attributes {
           raise Limit("attribute budget")
         }
-        attributes.push(attribute_line(tokens))
+        attributes.push(read_attribute(tokens, scanner, limits, 0))
       }
       "@data" => {
         if tokens.length() != 1 {
@@ -169,4 +179,67 @@ fn parse_header(scanner : Scanner, limits : Limits) -> Schema raise ArffError {
     }
   }
   raise Invalid("unreachable header state")
+}
+
+///|
+fn read_attribute(
+  tokens : Array[Token],
+  scanner : Scanner,
+  limits : Limits,
+  depth : Int32,
+) -> Attribute raise ArffError {
+  if depth > 16 {
+    raise Limit("relational schema nesting exceeds 16")
+  }
+  let attribute = attribute_line(tokens)
+  if attribute.kind is Relational(_) {
+    let children = []
+    while true {
+      let first = scanner.next()
+      if first.kind == Newline {
+        continue
+      }
+      if first.kind != Word || first.quoted {
+        raise Syntax(
+          first.line,
+          first.column,
+          "nested @attribute or @end required",
+        )
+      }
+      let tail = line_tokens(scanner, limits.max_input)
+      let line = [first]
+      for token in tail {
+        line.push(token)
+      }
+      match keyword(first.text) {
+        "@attribute" => {
+          if children.length() >= limits.max_attributes {
+            raise Limit("nested attribute budget")
+          }
+          children.push(read_attribute(line, scanner, limits, depth + 1))
+        }
+        "@end" => {
+          if line.length() != 2 ||
+            require_word(line[1], "@end name required") != attribute.name {
+            raise Syntax(
+              first.line,
+              first.column,
+              "@end name must match relational attribute",
+            )
+          }
+          if children.is_empty() {
+            raise Invalid("relational schema needs attributes")
+          }
+          return { name: attribute.name, kind: Relational(children), }
+        }
+        _ =>
+          raise Syntax(
+            first.line,
+            first.column,
+            "unexpected directive in relational schema",
+          )
+      }
+    }
+  }
+  attribute
 }

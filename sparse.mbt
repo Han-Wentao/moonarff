@@ -20,11 +20,14 @@ fn sparse_index(token : Token, width : Int32) -> Int32 raise ArffError {
 
 ///|
 fn sparse_record(
-  schema : Schema,
+  attributes : Array[Attribute],
   tokens : Array[Token],
+  weight : Double,
+  budget : FormatBudget,
+  depth : Int32,
 ) -> Record raise ArffError {
   let first = tokens[0]
-  let width = schema.attributes.length()
+  let width = attributes.length()
   let cells : Array[Cell?] = Array::make(width, None)
   let mut previous = -1
   let mut i = 1
@@ -42,7 +45,7 @@ fn sparse_record(
     if i >= tokens.length() {
       raise Syntax(first.line, first.column, "sparse value required")
     }
-    cells[index] = Some(parse_cell(schema.attributes[index], tokens[i]))
+    cells[index] = Some(parse_cell(attributes[index], tokens[i], budget, depth))
     i += 1
     if i < tokens.length() && tokens[i].kind == Close {
       break
@@ -59,7 +62,7 @@ fn sparse_record(
     raise Syntax(
       first.line,
       first.column,
-      "unclosed sparse row or unsupported instance weight",
+      "unclosed sparse row or malformed instance weight",
     )
   }
   let values : Array[Cell] = []
@@ -67,8 +70,16 @@ fn sparse_record(
     match cells[index] {
       Some(value) => values.push(value)
       None =>
-        match schema.attributes[index].kind {
+        match attributes[index].kind {
           Numeric => values.push(Number(0.0))
+          Date(pattern) => {
+            ignore(format_date(0.0, pattern))
+            values.push(DateValue(0.0))
+          }
+          Relational(_) =>
+            raise Unsupported(
+              "sparse relational values must be explicit; dictionary index zero is not a portable default",
+            )
           Nominal(labels) => values.push(Label(labels[0]))
           Text =>
             raise Unsupported(
@@ -77,5 +88,5 @@ fn sparse_record(
         }
     }
   }
-  { values, }
+  { values, weight, }
 }

@@ -35,6 +35,11 @@ pub fn encode_features(
   let values = []
   let missing = []
   for row in data.rows {
+    if row.weight != 1.0 {
+      raise Unsupported(
+        "feature batches do not carry instance weights; retain records or explicitly normalize weights first",
+      )
+    }
     let encoded = Array::make(width, 0.0)
     let mask = Array::make(width, false)
     for i, cell in row.values {
@@ -49,7 +54,11 @@ pub fn encode_features(
           for j = start; j < end; j = j + 1 {
             mask[j] = true
           }
-        Number(n) => encoded[start] = n
+        Number(n) | DateValue(n) => encoded[start] = n
+        Relation(_) =>
+          raise Unsupported(
+            "nested relations need explicit projection before feature encoding",
+          )
         Label(label) =>
           match plan.schema.attributes[i].kind {
             Nominal(labels) =>

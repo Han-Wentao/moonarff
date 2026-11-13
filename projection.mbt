@@ -3,6 +3,7 @@
 fn copy_attribute(attribute : Attribute) -> Attribute {
   let kind = match attribute.kind {
     Nominal(labels) => Nominal(labels.copy())
+    Relational(children) => Relational(children.map(copy_attribute))
     other => other
   }
   { name: attribute.name, kind, }
@@ -18,7 +19,7 @@ fn copy_schema(schema : Schema) -> Schema {
 
 ///|
 fn copy_record(row : Record) -> Record {
-  { values: row.values.copy(), }
+  { weight: row.weight, values: row.values.map(copy_cell), }
 }
 
 ///|
@@ -51,7 +52,10 @@ pub fn project(
     copy_attribute(data.schema.attributes[i])
   })
   let rows = data.rows.map(fn(row) {
-    { values: indices.map(fn(i) { row.values[i] }), }
+    {
+      weight: row.weight,
+      values: indices.map(fn(i) { copy_cell(row.values[i]) }),
+    }
   })
   { schema: { relation: data.schema.relation, attributes, }, rows, }
 }
@@ -73,4 +77,12 @@ pub fn slice_rows(
     rows.push(copy_record(data.rows[i]))
   }
   { schema: copy_schema(data.schema), rows, }
+}
+
+///|
+fn copy_cell(cell : Cell) -> Cell {
+  match cell {
+    Relation(rows) => Relation(rows.map(copy_record))
+    other => other
+  }
 }

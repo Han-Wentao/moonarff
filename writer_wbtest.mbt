@@ -10,8 +10,11 @@ test "dense serialization roundtrip quotes escapes and Unicode" {
       ],
     },
     rows: [
-      { values: [Number(-2.25e10), Label("a'\\\n\t% 🍎"), Label("?")], },
-      { values: [Missing, Label(""), Missing], },
+      {
+        weight: 1.0,
+        values: [Number(-2.25e10), Label("a'\\\n\t% 🍎"), Label("?")],
+      },
+      { weight: 1.0, values: [Missing, Label(""), Missing], },
     ],
   }
   assert_true(parse(write(d)) == d)
@@ -22,7 +25,7 @@ test "dense serialization roundtrip quotes escapes and Unicode" {
 test "writer rejects invalid typed data before emitting" {
   let d = Dataset::{
     schema: { relation: "r", attributes: [{ name: "x", kind: Numeric, }], },
-    rows: [{ values: [Label("1")], }],
+    rows: [{ weight: 1.0, values: [Label("1")], }],
   }
   assert_true(
     try {

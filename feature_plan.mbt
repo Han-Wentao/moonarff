@@ -41,7 +41,7 @@ pub fn fit_features(
   for attribute in schema.attributes {
     offsets.push(columns.length())
     match attribute.kind {
-      Numeric => {
+      Numeric | Date(_) => {
         if columns.length() >= limits.max_attributes {
           raise Limit("feature width budget")
         }
@@ -55,9 +55,9 @@ pub fn fit_features(
           columns.push({ attribute: attribute.name, category: Some(label), })
         }
       }
-      Text =>
+      Text | Relational(_) =>
         raise Unsupported(
-          "feature encoding requires explicit exclusion of string columns",
+          "feature encoding requires explicit exclusion of string/relational columns",
         )
     }
   }

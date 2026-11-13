@@ -56,12 +56,12 @@ pub fn recode_nominal(
   let schema = { relation: data.schema.relation, attributes, }
   validate_schema(schema, limits~)
   let rows = data.rows.map(fn(row) {
-    let values = row.values.copy()
+    let values = row.values.map(copy_cell)
     match values[index] {
       Label(label) => values[index] = Label(mapping.get(label).unwrap_or(label))
       _ => ()
     }
-    { values, }
+    { values, weight: row.weight, }
   })
   { schema, rows, }
 }
