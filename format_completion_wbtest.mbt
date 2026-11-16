@@ -43,6 +43,112 @@ test "date ARFF default custom and sparse zero" {
 }
 
 ///|
+test "date text fields weekdays day-of-year and clock cycles" {
+  let named = "MMM-dd-yyyy-EEEE"
+  let leap_day = parse_date("Feb-29-2024-Thursday", named)
+  assert_eq(leap_day, parse_date("2024-02-29", "yyyy-MM-dd"))
+  assert_eq(format_date(leap_day, named), "Feb-29-2024-Thursday")
+  assert_eq(parse_date("fEb-29-2024-THURSDAY", named), leap_day)
+  assert_true(
+    try {
+      ignore(parse_date("Feb-29-2024-Friday", named))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  let ordinal = "yyyy-DDD"
+  assert_eq(parse_date("2024-060", ordinal), leap_day)
+  assert_eq(format_date(leap_day, ordinal), "2024-060")
+  assert_true(
+    try {
+      ignore(parse_date("2023-366", ordinal))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_true(
+    try {
+      ignore(parse_date("2024-000", ordinal))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_eq(
+    parse_date("2024-02-29 12:05:06 AM", "yyyy-MM-dd hh:mm:ss a"),
+    leap_day + 306000.0,
+  )
+  assert_eq(
+    parse_date("2024-02-29 12:05:06 PM", "yyyy-MM-dd hh:mm:ss a"),
+    leap_day + 43506000.0,
+  )
+  assert_eq(
+    format_date(leap_day + 43506000.0, "yyyy-MM-dd K:mm:ss a"),
+    "2024-02-29 0:05:06 PM",
+  )
+  assert_eq(parse_date("2024-02-29 24:00", "yyyy-MM-dd kk:mm"), leap_day)
+  assert_true(
+    try {
+      ignore(parse_date("2024-02-29 13:00 PM", "yyyy-MM-dd HH:mm a"))
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
+
+///|
+test "date text widths and adjacent numeric boundaries" {
+  let leap_day = parse_date("2024-02-29", "yyyy-MM-dd")
+  assert_eq(parse_date("29February2024Thursday", "dMMMyyyyE"), leap_day)
+  assert_eq(parse_date("29Feb2024Thu", "dMMMMyyyyEEEE"), leap_day)
+  assert_eq(format_date(leap_day, "dMMMyyyyE"), "29Feb2024Thu")
+  assert_eq(parse_date("20240229", "yyyyMMdd"), leap_day)
+}
+
+///|
+test "date patterns reject ambiguous clocks before reading values" {
+  for pattern in ["yyyy-MM-dd HH hh a", "yyyy-MM-dd K k", "yyyy-MM-dd HH HH"] {
+    assert_true(
+      try {
+        ignore(
+          read_schema(
+            "@relation d\n@attribute t date '" + pattern + "'\n@data\n",
+          ),
+        )
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+}
+
+///|
+test "date ordinal cutover and conflicting calendar fields" {
+  assert_eq(
+    parse_date("1582-278", "yyyy-DDD"),
+    parse_date("1582-10-15", "yyyy-MM-dd"),
+  )
+  assert_eq(
+    format_date(parse_date("1582-12-31", "yyyy-MM-dd"), "yyyy-DDD"),
+    "1582-355",
+  )
+  for text in ["2024-02-29-061", "2023-12-31-366", "1582-12-31-356"] {
+    assert_true(
+      try {
+        ignore(parse_date(text, "yyyy-MM-dd-DDD"))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+}
+
+///|
 test "relational nested schema empty missing and weighted instances" {
   let source = "@relation bags\n@attribute id numeric\n@attribute bag relational\n @attribute x numeric\n @attribute name string\n@end bag\n@data\n1,'2,hello\\n3,\\\"comma,value\\\",{0.25}',{2.5}\n2,''\n3,?\n"
   let d = parse(source)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-11-16
+
+- Expand Date patterns with English month and weekday names, day-of-year, AM/PM, and 12/24-hour fields; reject inconsistent calendar fields.
+- Accept both full and abbreviated English date names independently of output width, parse variable-width numbers before text fields, and reject ambiguous mixed-clock patterns.
+- Run Weka date interoperability checks with an explicit English Java locale and add bidirectional fixtures for the expanded patterns.
+- Clarify that complete Weka ARFF and date-semantic compatibility remains the project goal; publish exact supported and unsupported date fields.
+- Add a compatibility matrix with observable completion criteria for outstanding date and other format semantics; keep those gaps within the project goal.
+
 ## 0.2.0 — 2026-11-13
 
 - Add Date attributes and UTC epoch-millisecond values, numeric Java date patterns and GregorianCalendar cutover behavior; reject invalid dates and lossy date output.

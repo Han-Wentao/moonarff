@@ -57,7 +57,7 @@ public class WekaOracle {
     return "["+q(d.relationName())+","+attrs(d)+","+rows(d)+"]";
   }
   public static void main(String[] args) throws Exception {
-    TimeZone.setDefault(TimeZone.getTimeZone("UTC")); Locale.setDefault(Locale.ROOT);
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC")); Locale.setDefault(Locale.US);
     Path input=Paths.get(args[0]), output=Paths.get(args[1]);
     Files.createDirectories(output);
     List<Path> paths=new ArrayList<>();

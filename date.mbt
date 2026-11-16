@@ -60,7 +60,11 @@ fn date_parts(pattern : String) -> Array[DatePart] raise ArffError {
       let n = i - start
       let supported = match c {
         'y' => n == 4
-        'M' | 'd' | 'H' | 'm' | 's' => n == 1 || n == 2
+        'M' => n >= 1 && n <= 4
+        'd' | 'H' | 'h' | 'K' | 'k' | 'm' | 's' => n == 1 || n == 2
+        'D' => n >= 1 && n <= 3
+        'E' => n >= 1 && n <= 4
+        'a' => n == 1
         'S' => n >= 1 && n <= 3
         'Z' => n == 1
         'X' => n >= 1 && n <= 3
@@ -68,7 +72,7 @@ fn date_parts(pattern : String) -> Array[DatePart] raise ArffError {
       }
       if !supported {
         raise Unsupported(
-          "date field outside deterministic numeric GregorianCalendar profile: " +
+          "date field outside deterministic GregorianCalendar profile: " +
           c.to_string(),
         )
       }
@@ -76,6 +80,13 @@ fn date_parts(pattern : String) -> Array[DatePart] raise ArffError {
         (c == 'Z' && seen.contains('X')) ||
         (c == 'X' && seen.contains('Z')) {
         raise Invalid("duplicate date field")
+      }
+      if c == 'H' || c == 'h' || c == 'K' || c == 'k' {
+        for clock in ['H', 'h', 'K', 'k'] {
+          if seen.contains(clock) {
+            raise Invalid("multiple hour fields in date pattern")
+          }
+        }
       }
       seen[c] = true
       parts.push(Field(c, n))
@@ -138,6 +149,83 @@ fn date_from_days(days : Int32) -> (Int32, Int32, Int32) {
 }
 
 ///|
+fn date_lower_ascii(code : UInt16) -> UInt16 {
+  if code >= 65 && code <= 90 {
+    code + 32
+  } else {
+    code
+  }
+}
+
+///|
+fn date_name_index(
+  text : String,
+  start : Int32,
+  names : Array[String],
+) -> (Int32, Int32) {
+  for index, name in names {
+    if start + name.length() <= text.length() {
+      let mut equal = true
+      for j = 0; j < name.length(); j = j + 1 {
+        if date_lower_ascii(text[start + j]) != date_lower_ascii(name[j]) {
+          equal = false
+          break
+        }
+      }
+      if equal {
+        return (index, name.length())
+      }
+    }
+  }
+  (-1, 0)
+}
+
+///|
+fn month_names(short : Bool) -> Array[String] {
+  if short {
+    [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
+      "Dec",
+    ]
+  } else {
+    [
+      "January", "February", "March", "April", "May", "June", "July", "August", "September",
+      "October", "November", "December",
+    ]
+  }
+}
+
+///|
+fn weekday_names(short : Bool) -> Array[String] {
+  if short {
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  } else {
+    [
+      "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    ]
+  }
+}
+
+///|
+fn weekday_index(days : Int32) -> Int32 {
+  ((days + 4) % 7 + 7) % 7
+}
+
+///|
+// Java accepts both long and short text names regardless of formatting width.
+// Try long names first so a short prefix does not consume only part of a name.
+fn date_text_name(text : String, start : Int32, month : Bool) -> (Int32, Int32) {
+  let full = if month { month_names(false) } else { weekday_names(false) }
+  let found = date_name_index(text, start, full)
+  if found.0 >= 0 {
+    found
+  } else {
+    let short = if month { month_names(true) } else { weekday_names(true) }
+    date_name_index(text, start, short)
+  }
+}
+
+///|
 fn date_digits(
   text : String,
   start : Int32,
@@ -158,14 +246,21 @@ fn date_digits(
 }
 
 ///|
-/// Strict Java GregorianCalendar cutover dates, with fixed numeric offsets. Missing fields use 1970-01-01.
+/// Parse deterministic English-locale Java date patterns; values are UTC epoch milliseconds.
 pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
   let parts = date_parts(pattern)
   let mut pos = 0
   let mut year = 1970
   let mut month = 1
   let mut day = 1
+  let mut day_of_year = 0
+  let mut has_day_of_year = false
+  let mut has_month = false
+  let mut has_day = false
+  let mut weekday = -1
   let mut hour = 0
+  let mut hour_kind = 'H'
+  let mut ampm = -1
   let mut minute = 0
   let mut second = 0
   let mut millis = 0
@@ -180,7 +275,30 @@ pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
           pos += 1
         }
       Field(c, n) =>
-        if c == 'X' || c == 'Z' {
+        if c == 'E' {
+          let (found, width) = date_text_name(text, pos, false)
+          if found < 0 {
+            raise Invalid("invalid English weekday name")
+          }
+          weekday = found
+          pos += width
+        } else if c == 'M' && n >= 3 {
+          let (found, width) = date_text_name(text, pos, true)
+          if found < 0 {
+            raise Invalid("invalid English month name")
+          }
+          month = found + 1
+          has_month = true
+          pos += width
+        } else if c == 'a' {
+          let names = ["AM", "PM"]
+          let (found, width) = date_name_index(text, pos, names)
+          if found < 0 {
+            raise Invalid("expected AM or PM")
+          }
+          ampm = found
+          pos += width
+        } else if c == 'X' || c == 'Z' {
           if pos < text.length() && text[pos] == 90 && c == 'X' {
             pos += 1
             continue
@@ -209,11 +327,14 @@ pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
           zone = sign * (zh * 60 + zm)
         } else {
           let mut width = n
-          // Java numeric fields use count as minimum output width. An adjacent
-          // numeric field fixes input width; a delimiter allows natural digits.
           let adjacent = if index + 1 < parts.length() {
             match parts[index + 1] {
-              Field(next, _) => next != 'X' && next != 'Z'
+              Field(next, count) =>
+                next != 'X' &&
+                next != 'Z' &&
+                next != 'E' &&
+                next != 'a' &&
+                !(next == 'M' && count >= 3)
               _ => false
             }
           } else {
@@ -221,7 +342,13 @@ pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
           }
           if !adjacent {
             width = 0
-            let cap = if c == 'y' { 4 } else if c == 'S' { 3 } else { 2 }
+            let cap = if c == 'y' {
+              4
+            } else if c == 'S' || c == 'D' {
+              3
+            } else {
+              2
+            }
             while width < cap &&
                   pos + width < text.length() &&
                   text[pos + width] >= 48 &&
@@ -236,9 +363,23 @@ pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
           pos += width
           match c {
             'y' => year = v
-            'M' => month = v
-            'd' => day = v
-            'H' => hour = v
+            'M' => {
+              month = v
+              has_month = true
+            }
+            'd' => {
+              day = v
+              has_day = true
+            }
+            'D' => {
+              day_of_year = v
+              has_day_of_year = true
+            }
+            'E' => ()
+            'H' | 'h' | 'K' | 'k' => {
+              hour = v
+              hour_kind = c
+            }
             'm' => minute = v
             's' => second = v
             'S' => millis = v
@@ -250,19 +391,55 @@ pub fn parse_date(text : String, pattern : String) -> Double raise ArffError {
   if pos != text.length() {
     raise Invalid("date has trailing data")
   }
-  if year < 1 ||
-    year > 9999 ||
-    month < 1 ||
+  if hour_kind == 'h' || hour_kind == 'K' {
+    if ampm < 0 {
+      raise Invalid("12-hour clock requires AM/PM")
+    }
+    if (hour_kind == 'h' && (hour < 1 || hour > 12)) ||
+      (hour_kind == 'K' && hour > 11) {
+      raise Invalid("invalid 12-hour clock value")
+    }
+    hour = hour % 12 + ampm * 12
+  } else if ampm >= 0 {
+    raise Invalid("AM/PM requires a 12-hour clock")
+  } else if hour_kind == 'k' {
+    if hour < 1 || hour > 24 {
+      raise Invalid("invalid 1..24 hour")
+    }
+    if hour == 24 {
+      hour = 0
+    }
+  }
+  if year < 1 || year > 9999 {
+    raise Invalid("year outside supported range")
+  }
+  if has_day_of_year {
+    let actual_days = days_from_date(year, 1, 1) + day_of_year - 1
+    let (actual_year, actual_month, actual_day) = date_from_days(actual_days)
+    if actual_year != year ||
+      (has_month && actual_month != month) ||
+      (has_day && actual_day != day) {
+      raise Invalid("day-of-year conflicts with calendar date")
+    }
+    month = actual_month
+    day = actual_day
+  }
+  if month < 1 ||
     month > 12 ||
     day < 1 ||
     day > month_days(year, month) ||
     (year == 1582 && month == 10 && day >= 5 && day <= 14) ||
     hour > 23 ||
     minute > 59 ||
-    second > 59 {
+    second > 59 ||
+    millis > 999 {
     raise Invalid("invalid Gregorian date/time")
   }
-  let value = days_from_date(year, month, day).to_double() * 86400000.0 +
+  let days = days_from_date(year, month, day)
+  if weekday >= 0 && weekday_index(days) != weekday {
+    raise Invalid("weekday does not match calendar date")
+  }
+  let value = days.to_double() * 86400000.0 +
     (hour * 3600000 + minute * 60000 + second * 1000 + millis - zone * 60000).to_double()
   if value < -62135769600000.0 || value > 253402300799999.0 {
     raise Invalid("date outside supported years 0001..9999")
@@ -304,12 +481,20 @@ pub fn format_date(value : Double, pattern : String) -> String raise ArffError {
         match c {
           'X' => out.write_string("Z")
           'Z' => out.write_string("+0000")
+          'E' => out.write_string(weekday_names(n <= 3)[weekday_index(days)])
+          'M' if n >= 3 => out.write_string(month_names(n == 3)[m - 1])
+          'a' => out.write_string(if rest / 3600000 < 12 { "AM" } else { "PM" })
           _ => {
+            let hour = rest / 3600000
             let v = match c {
               'y' => y
               'M' => m
               'd' => d
-              'H' => rest / 3600000
+              'D' => days - days_from_date(y, 1, 1) + 1
+              'H' => hour
+              'k' => if hour == 0 { 24 } else { hour }
+              'h' => if hour % 12 == 0 { 12 } else { hour % 12 }
+              'K' => hour % 12
               'm' => rest / 60000 % 60
               's' => rest / 1000 % 60
               'S' => rest % 1000

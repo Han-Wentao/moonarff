@@ -47,3 +47,11 @@ GitHub 仓库查询 `arff language:MoonBit`、`weka language:MoonBit`、`arff Mo
 MoonCakes 重跑 arff、weka、parse_arff、loadarff、libsvm、attribute relation（limit=100）。前三项只返回本模块0.1.0，loadarff/libsvm没有结果。attribute relation 的17个结果为 Office/XML、ER图、ORM、文档结构等方向，从其公开功能说明未见 ARFF 数据集协议的直接替代能力；关键词中的 relation 不等于 Weka Relational。保留此前 MoonFrame/pandas 的表格处理与 moonsplit 的数据集划分边界比较，不把这些相邻方向说成不存在。
 
 本轮对照 Weka 3.8.6 的格式语义并执行真实 Java 双向测试；这是跨语言标准参考，不作为 MoonBit 内重复选题的证据。公开索引和先前源码阅读范围有限，结论仅为记录范围内没有发现直接成熟替代，不保证全球唯一。
+
+## 2026-11-16 日期兼容扩展复核
+
+继续维护同一 ARFF 格式库及原历史。GitHub 重新以 per_page=100 查询 `arff language:MoonBit`、`weka language:MoonBit`、`arff MoonBit in:readme`，前后两项仅返回本仓库，Weka 无结果；`@relation` 与 `@attribute` 组合、`parse_arff`、`loadarff` 的 MoonBit 代码查询均无结果，六项响应均 incomplete_results=false。
+
+MoonCakes 重新执行 limit=100 的 arff、weka、parse_arff、loadarff、libsvm、attribute relation 查询。前三项仅返回本模块0.2.0，loadarff/libsvm无结果；attribute relation 返回16项，公开描述／包摘要涉及 OOXML、图形／ER、UI、GIR、文档及视觉等能力，未见 Weka ARFF 数据交换的直接候选。搜索结果、摘要和 JSON 响应保存在仓库外审计目录；保留前述 MoonFrame、pandas、moonsplit 的源码阅读边界，未重新逐文件审计所有邻居。
+
+本次扩展针对完整 Weka ARFF 兼容目标，补充英文日期名、年内日序与小时制，并修复文本字段边界及小时字段歧义；未以统计／特征操作替代格式缺口。兼容矩阵明确保留尚未完成的日期、字典状态及其他格式语义工作。记录范围内未识别出新增的成熟直接替代；搜索索引、结果上限及未读源码仍限制本结论。

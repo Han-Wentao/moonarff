@@ -21,8 +21,9 @@ included. All examples and differential fixtures are synthetic.
   to establish test behavior, not ported into production. Its code is not vendored.
 - MoonBit core: https://github.com/moonbitlang/core , Apache-2.0.
   Uses the selected toolchain's standard string, double and debug packages; tests/examples use UTF-8 encoding.
-- Java SimpleDateFormat and GregorianCalendar API documentation: numeric pattern
-  semantics, epoch milliseconds and the 1582 calendar cutover. No JDK source is copied.
+- Java SimpleDateFormat and GregorianCalendar API documentation: numeric and English
+  text patterns, clock cycles, epoch milliseconds and the 1582 calendar cutover.
+  No JDK source is copied.
   https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/SimpleDateFormat.html
   https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/GregorianCalendar.html
 
