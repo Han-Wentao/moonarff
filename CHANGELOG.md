@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 2026-11-25
+
+- Update the pinned MoonBit toolchain to moonc 0.10.22 and migrate sources/interfaces to its current formatter and generated API format.
+- Add regression coverage for date overflow rejection, leap-year day-of-year bounds, Gregorian cutover, and dense/sparse/stream reader paths.
+- Keep the complete Weka compatibility gaps explicit; this maintenance release does not claim full format compatibility.
+
 ## 0.2.1 — 2026-11-16
 
 - Expand Date patterns with English month and weekday names, day-of-year, AM/PM, and 12/24-hour fields; reject inconsistent calendar fields.

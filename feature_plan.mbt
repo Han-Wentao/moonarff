@@ -1,9 +1,10 @@
 ///|
 /// Feature columns carry separate attribute/category fields to avoid name collisions.
+#derive(Eq, Debug)
 pub(all) struct FeatureColumn {
   attribute : String
   category : String?
-} derive(Eq, Debug)
+}
 
 ///|
 /// A fitted plan owns a snapshot of ordered domains, independent of later mutations.

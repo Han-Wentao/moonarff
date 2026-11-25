@@ -59,75 +59,83 @@ pub(all) suberror ArffError {
 }
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Attribute {
   name : String
   kind : AttributeType
-} derive(Eq, @debug.Debug)
+}
 pub fn Attribute::equal(Self, Self) -> Bool
 pub fn Attribute::not_equal(Self, Self) -> Bool
 pub fn Attribute::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum AttributeType {
   Numeric
   Nominal(Array[String])
   Text
   Date(String)
   Relational(Array[Attribute])
-} derive(Eq, @debug.Debug)
+}
 pub fn AttributeType::equal(Self, Self) -> Bool
 pub fn AttributeType::not_equal(Self, Self) -> Bool
 pub fn AttributeType::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CategoryCount {
   label : String
   count : Int32
-} derive(Eq, @debug.Debug)
+}
 pub fn CategoryCount::equal(Self, Self) -> Bool
 pub fn CategoryCount::not_equal(Self, Self) -> Bool
 pub fn CategoryCount::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Cell {
   Missing
   Number(Double)
   Label(String)
   DateValue(Double)
   Relation(Array[Record])
-} derive(Eq, @debug.Debug)
+}
 pub fn Cell::equal(Self, Self) -> Bool
 pub fn Cell::not_equal(Self, Self) -> Bool
 pub fn Cell::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ColumnSummary {
   NumericProfile(NumericSummary)
   DateProfile(NumericSummary)
   RelationalProfile(Int32, Int32, Int32)
   NominalProfile(Int32, Array[CategoryCount])
   TextProfile(Int32, Int32, Int32)
-} derive(Eq, @debug.Debug)
+}
 pub fn ColumnSummary::equal(Self, Self) -> Bool
 pub fn ColumnSummary::not_equal(Self, Self) -> Bool
 pub fn ColumnSummary::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Dataset {
   schema : Schema
   rows : Array[Record]
-} derive(Eq, @debug.Debug)
+}
 pub fn Dataset::equal(Self, Self) -> Bool
 pub fn Dataset::not_equal(Self, Self) -> Bool
 pub fn Dataset::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FeatureBatch {
   values : Array[Array[Double]]
   missing : Array[Array[Bool]]
-} derive(Eq, @debug.Debug)
+}
 pub fn FeatureBatch::equal(Self, Self) -> Bool
 pub fn FeatureBatch::not_equal(Self, Self) -> Bool
 pub fn FeatureBatch::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FeatureColumn {
   attribute : String
   category : String?
-} derive(Eq, @debug.Debug)
+}
 pub fn FeatureColumn::equal(Self, Self) -> Bool
 pub fn FeatureColumn::not_equal(Self, Self) -> Bool
 pub fn FeatureColumn::to_repr(Self) -> @debug.Repr
@@ -149,6 +157,7 @@ pub(all) struct Limits {
 }
 pub fn Limits::default() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NumericSummary {
   count : Int32
   missing : Int32
@@ -156,15 +165,16 @@ pub(all) struct NumericSummary {
   maximum : Double?
   mean : Double?
   sample_variance : Double?
-} derive(Eq, @debug.Debug)
+}
 pub fn NumericSummary::equal(Self, Self) -> Bool
 pub fn NumericSummary::not_equal(Self, Self) -> Bool
 pub fn NumericSummary::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Profile {
   rows : Int32
   columns : Array[ColumnSummary]
-} derive(Eq, @debug.Debug)
+}
 pub fn Profile::equal(Self, Self) -> Bool
 pub fn Profile::not_equal(Self, Self) -> Bool
 pub fn Profile::to_repr(Self) -> @debug.Repr
@@ -176,10 +186,11 @@ pub fn Reader::new(String, limits? : Limits) -> Self raise ArffError
 pub fn Reader::next(Self) -> Record? raise ArffError
 pub fn Reader::schema(Self) -> Schema
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Record {
   values : Array[Cell]
   weight : Double
-} derive(Eq, @debug.Debug)
+}
 pub fn Record::equal(Self, Self) -> Bool
 pub fn Record::not_equal(Self, Self) -> Bool
 pub fn Record::to_repr(Self) -> @debug.Repr
@@ -190,10 +201,11 @@ pub struct Scanner {
 pub fn Scanner::new(String, limits? : Limits) -> Self raise ArffError
 pub fn Scanner::next(Self) -> Token raise ArffError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Schema {
   relation : String
   attributes : Array[Attribute]
-} derive(Eq, @debug.Debug)
+}
 pub fn Schema::equal(Self, Self) -> Bool
 pub fn Schema::index_of(Self, String) -> Int32?
 pub fn Schema::not_equal(Self, Self) -> Bool
@@ -224,6 +236,7 @@ pub(all) struct Token {
   column : Int32
 }
 
+#derive(Eq)
 pub(all) enum TokenKind {
   Word
   Comma
@@ -231,7 +244,7 @@ pub(all) enum TokenKind {
   Close
   Newline
   End
-} derive(Eq)
+}
 pub fn TokenKind::equal(Self, Self) -> Bool
 pub fn TokenKind::not_equal(Self, Self) -> Bool
 

@@ -1,5 +1,6 @@
 ///|
 /// Numeric summaries exclude missing values; variance uses the sample denominator.
+#derive(Eq, Debug)
 pub(all) struct NumericSummary {
   count : Int32
   missing : Int32
@@ -7,28 +8,31 @@ pub(all) struct NumericSummary {
   maximum : Double?
   mean : Double?
   sample_variance : Double?
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct CategoryCount {
   label : String
   count : Int32
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum ColumnSummary {
   NumericProfile(NumericSummary)
   DateProfile(NumericSummary)
   RelationalProfile(Int32, Int32, Int32)
   NominalProfile(Int32, Array[CategoryCount])
   TextProfile(Int32, Int32, Int32)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Profile {
   rows : Int32
   columns : Array[ColumnSummary]
-} derive(Eq, Debug)
+}
 
 ///|
 fn numeric_summary(

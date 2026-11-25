@@ -1,10 +1,11 @@
 ///|
 /// Values use zero for missing cells only in conjunction with an explicit mask.
 /// Each nominal feature group repeats its source missing bit across the group.
+#derive(Eq, Debug)
 pub(all) struct FeatureBatch {
   values : Array[Array[Double]]
   missing : Array[Array[Bool]]
-} derive(Eq, Debug)
+}
 
 ///|
 fn compatible_features(

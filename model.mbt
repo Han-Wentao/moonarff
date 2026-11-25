@@ -1,45 +1,51 @@
 ///|
 /// Typed schema and row representation; nominal labels retain declaration order.
+#derive(Eq, Debug)
 pub(all) enum AttributeType {
   Numeric
   Nominal(Array[String])
   Text
   Date(String)
   Relational(Array[Attribute])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Attribute {
   name : String
   kind : AttributeType
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Cell {
   Missing
   Number(Double)
   Label(String)
   DateValue(Double)
   Relation(Array[Record])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Schema {
   relation : String
   attributes : Array[Attribute]
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Record {
   values : Array[Cell]
   weight : Double
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Dataset {
   schema : Schema
   rows : Array[Record]
-} derive(Eq, Debug)
+}
 
 ///|
 pub(all) suberror ArffError {

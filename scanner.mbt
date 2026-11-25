@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 pub(all) enum TokenKind {
   Word
   Comma
@@ -6,7 +7,7 @@ pub(all) enum TokenKind {
   Close
   Newline
   End
-} derive(Eq)
+}
 
 ///|
 pub extend TokenKind with Eq::{equal, not_equal}
