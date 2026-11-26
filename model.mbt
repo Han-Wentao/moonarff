@@ -24,6 +24,8 @@ pub(all) enum Cell {
   Label(String)
   DateValue(Double)
   Relation(Array[Record])
+  /// Weka sparse default: dictionary index zero, unresolved until the attribute dictionary is known.
+  DictionaryZero
 }
 
 ///|
@@ -45,6 +47,92 @@ pub(all) struct Record {
 pub(all) struct Dataset {
   schema : Schema
   rows : Array[Record]
+}
+
+///|
+/// Resolve Weka dictionary-index-zero references once later explicit values reveal each dictionary.
+fn resolve_dictionary_zero(
+  attributes : Array[Attribute],
+  rows : Array[Record],
+) -> Array[Record] {
+  let copied = rows.map(fn(row) {
+    { values: row.values.copy(), weight: row.weight, }
+  })
+  // A relational attribute shares child dictionaries across all of its relation values.
+  for i, attribute in attributes {
+    match attribute.kind {
+      Relational(children) => {
+        let nested : Array[Record] = []
+        let lengths : Array[Int32] = []
+        for row in copied {
+          match row.values[i] {
+            Relation(inner) => {
+              lengths.push(inner.length())
+              for item in inner {
+                nested.push(item)
+              }
+            }
+            _ => lengths.push(-1)
+          }
+        }
+        let resolved = resolve_dictionary_zero(children, nested)
+        let mut offset = 0
+        for r in 0..<copied.length() {
+          if lengths[r] >= 0 {
+            let inner = []
+            for _ in 0..<lengths[r] {
+              inner.push(resolved[offset])
+              offset += 1
+            }
+            copied[r].values[i] = Relation(inner)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for i, attribute in attributes {
+    match attribute.kind {
+      Text | Relational(_) => {
+        let mut first : Cell? = None
+        for row in copied {
+          match row.values[i] {
+            DictionaryZero | Missing => ()
+            value => if first is None { first = Some(value) }
+          }
+        }
+        match first {
+          Some(value) =>
+            for row in copied {
+              if row.values[i] is DictionaryZero {
+                row.values[i] = value
+              }
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  copied
+}
+
+///|
+/// Resolve sparse String/Relational index-zero cells after all streamed rows are known.
+///
+/// StreamReader emits `DictionaryZero` when the first explicit dictionary value may
+/// appear later. Retain those records, then call this once the stream is complete.
+/// The returned records are copied; the caller's streamed records are not mutated.
+pub fn resolve_dictionary_defaults(
+  schema : Schema,
+  rows : Array[Record],
+  limits~ : Limits = Limits::default(),
+) -> Array[Record] raise ArffError {
+  // Validate the whole graph before traversing by schema index. Share the
+  // recursive budgets so malformed or oversized caller-owned records fail as
+  // ArffError instead of trapping, including nested relational records.
+  validate({ schema, rows, }, limits~)
+  resolve_dictionary_zero(schema.attributes, rows)
 }
 
 ///|
@@ -125,6 +213,7 @@ pub fn validate_schema(
 
 ///|
 priv struct FormatBudget {
+  date_start : Double
   limits : Limits
   mut attributes : Int32
   mut rows : Int32
@@ -133,7 +222,13 @@ priv struct FormatBudget {
 
 ///|
 fn FormatBudget::new(limits : Limits) -> FormatBudget {
-  { limits, attributes: 0, rows: 0, cells: 0, }
+  {
+    limits,
+    date_start: date_century_start(),
+    attributes: 0,
+    rows: 0,
+    cells: 0,
+  }
 }
 
 ///|
@@ -198,8 +293,8 @@ fn validate_row(
   if row.values.length() != attributes.length() {
     raise Invalid("record width differs from schema")
   }
-  if !finite(row.weight) {
-    raise Invalid("instance weight must be finite")
+  if row.weight.is_nan() {
+    raise Invalid("instance weight cannot be NaN")
   }
   if budget.rows >= budget.limits.max_rows ||
     attributes.length() > budget.limits.max_cells - budget.cells {
@@ -211,10 +306,12 @@ fn validate_row(
     match (attributes[i].kind, cell) {
       (_, Missing) => ()
       (Numeric, Number(n)) =>
-        if !finite(n) {
-          raise Invalid("non-finite numeric cell")
+        if n.is_nan() {
+          raise Invalid("numeric NaN must be represented as missing")
         }
       (Date(pattern), DateValue(n)) => ignore(format_date(n, pattern))
+      (Text, DictionaryZero) => ()
+      (Relational(_), DictionaryZero) => ()
       (Text, Label(s)) =>
         if s.length() > budget.limits.max_token {
           raise Limit("text token budget")

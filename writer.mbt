@@ -71,6 +71,10 @@ fn cell_text(
         Date(pattern) => quote_word(format_date(n, pattern))
         _ => raise Invalid("date cell schema mismatch")
       }
+    DictionaryZero =>
+      raise Unsupported(
+        "unresolved dictionary index zero cannot be written as a dense value",
+      )
     Relation(rows) =>
       match attribute.kind {
         Relational(children) => {
@@ -103,6 +107,7 @@ fn write_row(
         (Numeric, Number(n)) => n == 0.0 && 1.0 / n > 0.0
         (Date(_), DateValue(n)) => n == 0.0
         (Nominal(labels), Label(s)) => s == labels[0]
+        (_, DictionaryZero) => true
         _ => false
       })
     if !omit {
@@ -134,7 +139,8 @@ pub fn write(
   validate(data, limits~)
   let out = BoundedText::new(limits.max_input)
   write_header(data.schema, out)
-  for row in data.rows {
+  let rows = resolve_dictionary_zero(data.schema.attributes, data.rows)
+  for row in rows {
     write_row(data.schema.attributes, row, false, out, limits)
   }
   out.to_string()

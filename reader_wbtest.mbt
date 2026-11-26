@@ -11,11 +11,7 @@ test "dense rows distinguish literal question mark and missing" {
 ///|
 test "dense rows reject malformed widths numbers and domains" {
   let h = "@relation r\n@attribute x numeric\n@attribute c {yes,no}\n@data\n"
-  for
-    row in [
-      "1,unknown", "1", "1,yes,2", "NaN,yes", "1e,yes", "0x12,yes", "1e999,yes",
-      ",yes", "1,,",
-    ] {
+  for row in ["1,unknown", "1", "1,yes,2", "1e,yes", "0x12,yes", ",yes", "1,,"] {
     assert_true(
       try {
         ignore(parse(h + row))
@@ -47,5 +43,43 @@ test "incremental reader EOF and row budget" {
     } catch {
       _ => true
     },
+  )
+}
+
+///|
+test "stream dictionary-zero references resolve after later values without mutating callbacks" {
+  let schema = Schema::{
+    relation: "streamed",
+    attributes: [
+      { name: "text", kind: Text, },
+      { name: "bag", kind: Relational([{ name: "label", kind: Text, }]), },
+    ],
+  }
+  let streamed = [
+    {
+      weight: 1.0,
+      values: [
+        DictionaryZero,
+        Relation([{ weight: 1.0, values: [DictionaryZero], }]),
+      ],
+    },
+    {
+      weight: 1.0,
+      values: [
+        Label("first"),
+        Relation([{ weight: 1.0, values: [Label("nested-first")], }]),
+      ],
+    },
+  ]
+  let resolved = resolve_dictionary_defaults(schema, streamed)
+  assert_eq(resolved[0].values[0], Label("first"))
+  assert_eq(
+    resolved[0].values[1],
+    Relation([{ weight: 1.0, values: [Label("nested-first")], }]),
+  )
+  assert_eq(streamed[0].values[0], DictionaryZero)
+  assert_eq(
+    streamed[0].values[1],
+    Relation([{ weight: 1.0, values: [DictionaryZero], }]),
   )
 }

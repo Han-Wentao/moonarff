@@ -7,10 +7,7 @@ test "date epochs zones leap days and precision" {
   assert_eq(parse_date("2000-02-29", "yyyy-MM-dd"), 951782400000.0)
   assert_eq(parse_date("19700101", "yyyyMMdd"), 0.0)
   assert_eq(parse_date("1970-1-1 8:0:0 +0800", "yyyy-M-d H:m:s Z"), 0.0)
-  for
-    text in [
-      "1900-02-29", "2000-13-01", "2001-04-31", "0000-01-01", "2020-01-01extra",
-    ] {
+  for text in ["1900-02-29", "2000-13-01", "2001-04-31", "0000-01-01"] {
     assert_true(
       try {
         ignore(parse_date(text, "yyyy-MM-dd"))
@@ -106,24 +103,38 @@ test "date text widths and adjacent numeric boundaries" {
   assert_eq(parse_date("29Feb2024Thu", "dMMMMyyyyEEEE"), leap_day)
   assert_eq(format_date(leap_day, "dMMMyyyyE"), "29Feb2024Thu")
   assert_eq(parse_date("20240229", "yyyyMMdd"), leap_day)
+  assert_eq(parse_date("02024-02-29", "yyyyy-MM-dd"), leap_day)
+  assert_eq(format_date(leap_day, "yyyyy-MM-dd"), "02024-02-29")
+  assert_eq(
+    parse_date("1970-01-01T00:00:00.0001", "yyyy-MM-dd'T'HH:mm:ss.SSSS"),
+    1.0,
+  )
+  assert_eq(
+    format_date(1.0, "yyyy-MM-dd'T'HH:mm:ss.SSSS"),
+    "1970-01-01T00:00:00.0001",
+  )
+  assert_eq(parse_date("2024-0060", "yyyy-DDDD"), leap_day)
+  assert_eq(format_date(leap_day, "yyyy-DDDD"), "2024-0060")
 }
 
 ///|
-test "date patterns reject ambiguous clocks before reading values" {
-  for pattern in ["yyyy-MM-dd HH hh a", "yyyy-MM-dd K k", "yyyy-MM-dd HH HH"] {
-    assert_true(
-      try {
-        ignore(
-          read_schema(
-            "@relation d\n@attribute t date '" + pattern + "'\n@data\n",
-          ),
-        )
-        false
-      } catch {
-        _ => true
-      },
-    )
-  }
+test "consistent mixed clocks and repeated fields match Weka" {
+  assert_eq(
+    parse_date("2024-02-29 13 01 PM", "yyyy-MM-dd HH hh a"),
+    parse_date("2024-02-29T13:00:00", "yyyy-MM-dd'T'HH:mm:ss"),
+  )
+  assert_eq(
+    parse_date("2024-02-29 01 03", "yyyy-MM-dd HH HH"),
+    parse_date("2024-02-29T03:00:00", "yyyy-MM-dd'T'HH:mm:ss"),
+  )
+  assert_true(
+    try {
+      ignore(parse_date("2024-02-29 14 01 PM", "yyyy-MM-dd HH hh a"))
+      false
+    } catch {
+      _ => true
+    },
+  )
 }
 
 ///|
@@ -218,14 +229,22 @@ test "relational declaration errors and nested global budgets" {
 }
 
 ///|
-test "weights finite signed preserved and malformed rejected" {
+test "weights signed and non-finite Weka values preserved" {
   let header = "@relation r\n@attribute n numeric\n@data\n"
   let d = parse(header + "1,{0}\n{0 2},{-0.5}\n3,{1}\n")
   assert_eq(d.rows.map(fn(r) { r.weight }), [0.0, -0.5, 1.0])
   assert_eq(parse(write(d)), d)
   assert_eq(parse(write_sparse(d)), d)
   assert_eq(project(d, ["n"]).rows[1].weight, -0.5)
-  for text in ["1,{NaN}", "1,{1e999}", "1,{2,3}", "1,{2} trailing", "1,{}"] {
+  let special = parse(
+    header + "NaN,{NaN}\nInfinity,{Infinity}\n1e999,{-Infinity}\n",
+  )
+  assert_true(special.rows[0].values == [Missing])
+  assert_eq(special.rows.map(fn(row) { row.weight }), [
+    1.0, @double.infinity, @double.neg_infinity,
+  ])
+  assert_eq(special.rows[1].values, [Number(@double.infinity)])
+  for text in ["1,{2,3}", "1,{2} trailing", "1,{}"] {
     assert_true(
       try {
         ignore(parse(header + text))
@@ -311,4 +330,30 @@ test "nested rows are deeply copied by projection and concatenation" {
   let joined = concatenate(d, d)
   assert_eq(joined.rows.length(), 2)
   assert_eq(parse(write(joined)), joined)
+}
+
+///|
+test "sparse relational dictionary zero resolves from a later explicit relation" {
+  let source = "@relation r\n@attribute rel relational\n@attribute x numeric\n@end rel\n@data\n{}\n{0 '1\\n'}\n"
+  let data = parse(source)
+  assert_true(data.rows[0].values == data.rows[1].values)
+  assert_eq(parse(write(data)), data)
+}
+
+///|
+test "Weka 24-hour field precedence follows pattern order" {
+  let expected = parse_date("2024-02-29 01", "yyyy-MM-dd HH")
+  assert_eq(parse_date("2024-02-29 12 1", "yyyy-MM-dd HH kk"), expected)
+  assert_eq(
+    parse_date("2024-02-29 1 12", "yyyy-MM-dd kk HH"),
+    parse_date("2024-02-29 12", "yyyy-MM-dd HH"),
+  )
+  assert_true(
+    try {
+      ignore(parse_date("2024-02-29 1 12 PM", "yyyy-MM-dd h H a"))
+      false
+    } catch {
+      _ => true
+    },
+  )
 }

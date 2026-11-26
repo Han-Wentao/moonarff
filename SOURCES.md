@@ -21,6 +21,7 @@ included. All examples and differential fixtures are synthetic.
   to establish test behavior, not ported into production. Its code is not vendored.
 - MoonBit core: https://github.com/moonbitlang/core , Apache-2.0.
   Uses the selected toolchain's standard string, double and debug packages; tests/examples use UTF-8 encoding.
+- `date_zone.mbt` contains generated English time-zone display-name mappings derived from Java 17.0.2 `DateFormatSymbols` (`Locale.US`) for deterministic Weka interoperability. `date_zone_rules.mbt` contains local-wall and UTC transitions, raw offsets, and DST-saving facts queried from the same JDK's `ZoneInfo` API (tzdb 2021e). The independent Weka oracle verifies strict GregorianCalendar field revalidation for timezone transitions, rather than rejecting all wall-time gaps. This is timezone data, not Java implementation code; production has no JDK dependency. The embedded IANA tzdb data is public domain. `scripts/generate_zone_rules.py` reproduces the rule snapshot and requires the exact Java 17.0.2/tzdb 2021e build because the target is Weka 3.8.6 interoperability, not the host's evolving timezone database. The generator accesses JDK internals only at development time; it is not run in production or normal builds.
 - Java SimpleDateFormat and GregorianCalendar API documentation: numeric and English
   text patterns, clock cycles, epoch milliseconds and the 1582 calendar cutover.
   No JDK source is copied.

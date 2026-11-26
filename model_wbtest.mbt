@@ -36,3 +36,66 @@ test "reject invalid domain and incompatible cells" {
   }
   assert_true(duplicate)
 }
+
+///|
+test "dictionary defaults reject malformed public input without indexing" {
+  let schema = Schema::{
+    relation: "r",
+    attributes: [{ name: "s", kind: Text, }],
+  }
+  let short = try {
+    ignore(resolve_dictionary_defaults(schema, [{ values: [], weight: 1.0, }]))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(short)
+}
+
+///|
+test "dictionary defaults validate nested values schema and aggregate budgets" {
+  let schema = Schema::{
+    relation: "r",
+    attributes: [
+      { name: "children", kind: Relational([{ name: "s", kind: Text, }]), },
+    ],
+  }
+  for
+    values in [
+      [Relation([{ values: [], weight: 1.0, }])],
+      [Relation([{ values: [Number(1.0)], weight: 1.0, }])],
+    ] {
+    let rejected = try {
+      ignore(resolve_dictionary_defaults(schema, [{ values, weight: 1.0, }]))
+      false
+    } catch {
+      Invalid(_) => true
+      _ => false
+    }
+    assert_true(rejected)
+  }
+  let bad_schema = try {
+    ignore(resolve_dictionary_defaults({ relation: "", attributes: [], }, []))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(bad_schema)
+  let rows = [
+    {
+      values: [Relation([{ values: [Label("x")], weight: 1.0, }])],
+      weight: 1.0,
+    },
+  ]
+  let small = Limits::{ ..Limits::default(), max_cells: 1, }
+  let over_budget = try {
+    ignore(resolve_dictionary_defaults(schema, rows, limits=small))
+    false
+  } catch {
+    Limit(_) => true
+    _ => false
+  }
+  assert_true(over_budget)
+}

@@ -26,12 +26,24 @@ test "sparse indices and delimiters are constrained" {
 }
 
 ///|
-test "sparse strings require explicit values" {
+test "sparse dictionary zero resolves across later explicit string" {
   let h = "@relation r\n@attribute s string\n@data\n"
-  assert_true(parse(h + "{0 'x'}").rows[0].values == [Label("x")])
+  let data = parse(h + "{}\n{0 'later'}\n")
+  assert_true(data.rows[0].values == [Label("later")])
+  assert_true(data.rows[1].values == [Label("later")])
+  assert_eq(parse(write(data)), data)
+}
+
+///|
+test "sparse dictionary zero remains explicit when its dictionary is empty" {
+  let data = parse("@relation r\n@attribute s string\n@data\n{}\n{}\n")
+  assert_true(data.rows[0].values == [DictionaryZero])
+  let sparse = write_sparse(data)
+  assert_true(sparse.contains("{}"))
+  assert_eq(parse(sparse), data)
   assert_true(
     try {
-      ignore(parse(h + "{}"))
+      ignore(write(data))
       false
     } catch {
       _ => true

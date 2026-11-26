@@ -76,15 +76,9 @@ fn sparse_record(
             ignore(format_date(0.0, pattern))
             values.push(DateValue(0.0))
           }
-          Relational(_) =>
-            raise Unsupported(
-              "sparse relational values must be explicit; dictionary index zero is not a portable default",
-            )
+          Relational(_) => values.push(DictionaryZero)
           Nominal(labels) => values.push(Label(labels[0]))
-          Text =>
-            raise Unsupported(
-              "sparse string attributes must be explicitly present; Weka dictionary-index zero is ambiguous",
-            )
+          Text => values.push(DictionaryZero)
         }
     }
   }

@@ -152,10 +152,30 @@ pub fn Scanner::next(self : Scanner) -> Token raise ArffError {
         'n' => out.write_char('\n')
         'r' => out.write_char('\r')
         't' => out.write_char('\t')
+        'a' => out.write_char('\u{0007}')
+        'v' => out.write_char('\u{000B}')
         'b' => out.write_char('\u{0008}')
         'f' => out.write_char('\u{000C}')
         '\\' | '\'' | '"' | '%' => out.write_char(escaped)
-        _ => raise Syntax(self.line, self.column, "unsupported escape")
+        '0'..<='7' => {
+          // java.io.StreamTokenizer consumes at most three octal digits,
+          // with a third digit only when the first is 0..3 (one byte).
+          let mut value = escaped.to_int() - 48
+          let max_more = if value <= 3 { 2 } else { 1 }
+          for count = 0; count < max_more; count = count + 1 {
+            if self.pos >= self.chars.length() {
+              break
+            }
+            let next = self.chars[self.pos]
+            if next < '0' || next > '7' {
+              break
+            }
+            ignore(self.take())
+            value = value * 8 + next.to_int() - 48
+          }
+          out.write_char(value.unsafe_to_char())
+        }
+        _ => out.write_char(escaped)
       }
     } else {
       out.write_char(ch)

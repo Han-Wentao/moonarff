@@ -36,6 +36,8 @@ pub fn recode_nominal(Dataset, String, Map[String, String], limits? : Limits) ->
 
 pub fn rename(Dataset, Map[String, String], relation? : String?, limits? : Limits) -> Dataset raise ArffError
 
+pub fn resolve_dictionary_defaults(Schema, Array[Record], limits? : Limits) -> Array[Record] raise ArffError
+
 pub fn slice_rows(Dataset, Int32, Int32, limits? : Limits) -> Dataset raise ArffError
 
 pub fn validate(Dataset, limits? : Limits) -> Unit raise ArffError
@@ -96,6 +98,7 @@ pub(all) enum Cell {
   Label(String)
   DateValue(Double)
   Relation(Array[Record])
+  DictionaryZero
 }
 pub fn Cell::equal(Self, Self) -> Bool
 pub fn Cell::not_equal(Self, Self) -> Bool

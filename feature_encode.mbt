@@ -56,6 +56,10 @@ pub fn encode_features(
             mask[j] = true
           }
         Number(n) | DateValue(n) => encoded[start] = n
+        DictionaryZero =>
+          raise Unsupported(
+            "unresolved dictionary index zero cannot be feature encoded",
+          )
         Relation(_) =>
           raise Unsupported(
             "nested relations need explicit projection before feature encoding",

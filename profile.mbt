@@ -119,6 +119,10 @@ pub fn profile(
         for row in data.rows {
           match row.values[i] {
             Missing => missing += 1
+            DictionaryZero =>
+              raise Unsupported(
+                "unresolved relational dictionary index zero cannot be profiled",
+              )
             Relation(rows) => {
               present += 1
               nested += rows.length()
@@ -152,6 +156,10 @@ pub fn profile(
         for row in data.rows {
           match row.values[i] {
             Missing => missing += 1
+            DictionaryZero =>
+              raise Unsupported(
+                "unresolved string dictionary index zero cannot be profiled",
+              )
             Label(s) => {
               present += 1
               if s.length() > longest {

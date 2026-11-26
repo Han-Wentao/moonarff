@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '17.0.2+8'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -62,4 +62,8 @@ jobs:
       - run: ORACLE_TARGET=wasm-gc python scripts/differential.py
       - run: python scripts/weka_interop.py
       - run: ORACLE_TARGET=wasm-gc python scripts/weka_interop.py
+      - run: python scripts/date_semantics.py
+      - run: ORACLE_TARGET=wasm-gc python scripts/date_semantics.py
+      - run: python scripts/date_zone_semantics.py
+      - run: ORACLE_TARGET=wasm-gc python scripts/date_zone_semantics.py
       - run: git diff --exit-code

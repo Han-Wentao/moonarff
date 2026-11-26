@@ -245,3 +245,33 @@ test "stream reentrancy and mixed incomplete UTF8 rejected" {
     },
   )
 }
+
+///|
+test "stream exposes unresolved Weka dictionary zero without buffering records" {
+  let reader = StreamReader::new()
+  let rows : Array[Record] = []
+  reader.feed("@relation r\n@attribute s string\n@data\n{}\n", fn(row) {
+    rows.push(row)
+  })
+  assert_eq(rows[0].values, [DictionaryZero])
+  reader.feed("{0 'later'}\n", fn(row) { rows.push(row) })
+  assert_eq(rows[1].values, [Label("later")])
+  reader.finish(fn(_) { () })
+}
+
+///|
+test "stream resolves deferred sparse text defaults after the final dictionary value" {
+  let source = "@relation r\n@attribute s string\n@data\n{}\n{0 'later'}\n"
+  let stream = StreamReader::new()
+  let streamed : Array[Record] = []
+  stream.feed(source, fn(row) { streamed.push(row) })
+  stream.finish(fn(row) { streamed.push(row) })
+  let schema = match stream.schema() {
+    Some(value) => value
+    None => panic()
+  }
+  assert_true(streamed[0].values[0] is DictionaryZero)
+  let resolved = resolve_dictionary_defaults(schema, streamed)
+  assert_eq(resolved, parse(source).rows)
+  assert_true(streamed[0].values[0] is DictionaryZero)
+}

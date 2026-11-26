@@ -4,8 +4,7 @@ test "adversarial grammar and unsupported constructs fail deterministically" {
   for
     row in [
       ",", "1,", "1 2", "{0}", "{0 1,0 2}", "{1 1}", "{-1 2}", "{2147483648 2}",
-      "{0 1,}", "{0 1} trailing", "NaN", "Infinity", "1e", "--1", ".", "0x10", "1_000",
-      "'1'junk",
+      "{0 1,}", "{0 1} trailing", "1e", "--1", ".", "0x10", "1_000", "'1'junk",
     ] {
     let rejected = try {
       let _ = parse(header + row)

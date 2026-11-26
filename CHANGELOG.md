@@ -1,4 +1,21 @@
-# Changelog
+## 0.2.3 — 2026-11-26
+
+- Match strict Weka timezone normalization across 618 English names and historical/modern transitions; compare all 31500 broad date, clock, boundary and repeated-zone probes against Java 17.0.2 / Weka 3.8.6. Pin CI to the exact Java oracle runtime and add regression cases for historical offsets, transition gaps, explicit daylight labels, and rejected overlaps.
+
+- Correct Gregorian cutover week-field validation to match Weka strict parsing for W/F selectors and explicit weekdays; ensure date formatting rejects text that cannot be parsed back without timestamp loss.
+- Replace the prior non-empty-only cutover assertion with exact W/F field outputs, strict-parser acceptance/rejection, and public formatter losslessness checks.
+- Expand the independent Java 17 / Weka 3.8.6 date oracle to 1,400 deterministic accept/reject and epoch probes, including W/F combinations with and without explicit day/weekday fields.
+
+- Match SimpleDateFormat minimum-width semantics for repeated numeric date fields and variable-width standalone numeric fields; add fixed-width adjacent parsing regressions.
+- Expand independent Weka 3.8.6 coverage to 159 source inputs, 159 Weka-written inputs, and 636 dense/sparse exports; derive written-input expectations by reparsing Weka’s actual serialized text.
+- Match Weka numeric parsing for NaN/missing, infinities and weights, Java floating suffixes, hexadecimal floats, surrounding whitespace, and exponent overflow/underflow.
+- Match Java SimpleDateFormat's rolling 80-year interpretation for two-digit `y`/`Y` values, comparing the complete candidate instant against the pivot boundary.
+- Freeze the pivot at Reader/StreamReader creation so one data set cannot change interpretation while streaming.
+- Resolve Weka sparse String/Relational dictionary-index-zero references during full parsing; preserve explicit unresolved references in immediate streaming callbacks and add a public post-stream resolver that returns copied rows after later dictionary values are known.
+- Match Weka 24-hour `H`/`k` and repeated-field precedence; add exact IEEE-754 bit regressions for hexadecimal normal/subnormal boundaries and decimal edge values.
+- Document remaining compatibility limits against the 159-case independent Weka matrix.
+- Extend Java date-pattern handling with week/calendar field defaults, suffix parsing, repeated zone fields, English timezone names and exact-millisecond range checks; add Weka probes for these semantics.
+- Extend the independent Weka matrix to 187 input fixtures, 187 Weka-written inputs and 748 dense/sparse exports. Remaining locale/zone edge cases and lenient normalization are still explicit gaps.
 
 ## 0.2.2 — 2026-11-25
 
