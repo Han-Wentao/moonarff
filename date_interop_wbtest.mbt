@@ -325,3 +325,20 @@ test "Weka strict calendar selection honors week fields and explicit era" {
   }
   assert_true(era_conflict)
 }
+
+///|
+test "Weka rejects week-year day-of-year with month-week selectors" {
+  let rejects = fn(text : String, pattern : String) -> Bool {
+    try {
+      ignore(parse_date(text, pattern))
+      false
+    } catch {
+      ArffError::Invalid(_) => true
+      _ => false
+    }
+  }
+  assert_true(rejects("2024 060 5", "Y D W"))
+  assert_true(rejects("2024 060 5", "Y D F"))
+  assert_true(rejects("2024 060 4", "Y D u"))
+  assert_eq(parse_date("2038 001 5", "Y D u"), 2145916800000.0)
+}

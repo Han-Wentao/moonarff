@@ -144,6 +144,16 @@ for fields in combinations(triple_fields, 3):
         pattern=' '.join(order)
         add(pattern, [' '.join(field_values[f][0] for f in order),
                       ' '.join(field_values[f][1] for f in order)])
+add('Y D u', ['2038 001 5', '2037 001 4', '2020 001 3'])
+# Month-week selectors combined with week-year/day-of-year selectors.
+for fields in [('Y','D','W'), ('Y','D','F')]:
+    for order in permutations(fields):
+        values=dict(Y='2024', D='060', W='5', F='5', u='4')
+        add(' '.join(order), [' '.join(values[f] for f in order)])
+for fields in [('Y','W'),('Y','F'),('Y','M','W'),('Y','M','F'),('Y','d','W'),('Y','d','F')]:
+    for order in permutations(fields):
+        values=dict(Y='2024', M='02', d='29', W='5', F='5')
+        add(' '.join(order), [' '.join(values[f] for f in order)])
 with tempfile.TemporaryDirectory(prefix='arff-probe-') as tmp:
     work=Path(tmp)
     src='''import java.util.*;import java.io.*;import weka.core.Attribute;public class Probe{public static void main(String[] a)throws Exception{TimeZone.setDefault(TimeZone.getTimeZone(\"UTC\"));Locale.setDefault(Locale.US);BufferedReader r=new BufferedReader(new InputStreamReader(System.in,\"UTF-8\"));String line;while((line=r.readLine())!=null){String[] c=line.split(\"\\\\t\",2);try{Attribute at=new Attribute(\"d\",c[0]);System.out.println((long)(double)at.parseDate(c[1]));}catch(Exception e){System.out.println(\"ERROR\");}}}}'''

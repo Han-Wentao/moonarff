@@ -758,9 +758,16 @@ fn parse_date_window(
     week_year_stamp > year_stamp {
     raise Invalid("calendar year, week-year, and day-of-year conflict")
   }
+  if has_week_year &&
+    has_day_of_year &&
+    !has_week_number &&
+    weekday_stamp < 0 &&
+    (has_weekday_ordinal || has_week_of_month) {
+    raise Invalid("month-week field needs a weekday with week-year/day-of-year")
+  }
   if !has_calendar_year && has_week_year && has_day_of_year && !has_week_number {
     let later_weekday_selector = day_stamp > doy_stamp ||
-      (has_month && weekday_stamp > doy_stamp) ||
+      weekday_stamp > doy_stamp ||
       weekday_ordinal_stamp > doy_stamp ||
       week_of_month_stamp > doy_stamp
     if !later_weekday_selector {
@@ -779,6 +786,9 @@ fn parse_date_window(
       prior_year_days
     } else {
       raise Invalid("day-of-year falls outside the selected week-year")
+    }
+    if week_year_and_number(selected_days).1 != 1 {
+      raise Invalid("week-year/day-of-year does not resolve within week one")
     }
     if weekday_stamp >= 0 && weekday_index(selected_days) != weekday {
       raise Invalid("weekday conflicts with selected day-of-year")

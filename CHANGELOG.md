@@ -1,3 +1,8 @@
+## 0.2.6 — 2026-11-26
+
+- 修复 Weka 严格日期语义：`Y`、`D` 与 `W/F` 的组合此前可能被错误接受，且年内日序未检查年周首周约束；增加字段排列差分用例，Java 17 / Weka 3.8.6 对照扩展至 2,901 个日期探针。
+- 更新中文 README 与兼容矩阵，使版本状态、示例安装版本及日期支持边界与实际交付一致。
+
 ## [Unreleased]
 
 - Match strict Weka calendar selection when week-of-year supersedes an implicit month while still validating explicit week-of-month fields; reject AD-era dates whose selected week resolves into BC. Add exact Weka regression cases and reduce 1,600 seeded 1969 formatter-to-parser comparisons to zero differences.
