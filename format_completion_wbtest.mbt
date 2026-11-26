@@ -86,13 +86,15 @@ test "date text fields weekdays day-of-year and clock cycles" {
     "2024-02-29 0:05:06 PM",
   )
   assert_eq(parse_date("2024-02-29 24:00", "yyyy-MM-dd kk:mm"), leap_day)
-  assert_true(
-    try {
-      ignore(parse_date("2024-02-29 13:00 PM", "yyyy-MM-dd HH:mm a"))
-      false
-    } catch {
-      _ => true
-    },
+  // SimpleDateFormat resolves explicit 24-hour fields before AM/PM. A
+  // consistent PM marker must not reinterpret 13:00 as 12:00 or be rejected.
+  assert_eq(
+    parse_date("2024-02-29 13:00 PM", "yyyy-MM-dd HH:mm a"),
+    leap_day + 46800000.0,
+  )
+  assert_eq(
+    parse_date("2024-02-29 13 01 PM", "yyyy-MM-dd H h a"),
+    leap_day + 46800000.0,
   )
 }
 

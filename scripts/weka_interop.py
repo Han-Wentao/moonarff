@@ -24,6 +24,8 @@ def fixtures():
     # Millisecond values independently checked as numbers, not merely strings after a round trip.
     patterns = [
         ('yyyy-MM-dd G', ['9999-01-01 BC','9999-12-31 BC','0001-01-01 BC','0044-03-15 BC','0001-12-31 BC','1970-01-01 AD','2024-02-29 AD']),
+        ('yyyy-MM-dd', ['２０２４-０２-２９','٢٠٢٤-٠٢-٢٩']),
+        ('yyyy-MM-dd HH:mm:ss.SSS', ['2024-02-29 -0:-0:-0.-0']),
         ('yy-MM-dd', ['45-01-01','46-01-01','46-12-01','00-06-15','99-07-04']),
         ('y-MM-dd', ['46-01-01','46-12-01']),
         ("YY-'W'ww-u", ['46-W01-2','46-W49-1']),

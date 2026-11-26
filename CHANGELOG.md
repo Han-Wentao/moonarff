@@ -1,3 +1,18 @@
+## [Unreleased]
+
+- Match strict Weka calendar selection when week-of-year supersedes an implicit month while still validating explicit week-of-month fields; reject AD-era dates whose selected week resolves into BC. Add exact Weka regression cases and reduce 1,600 seeded 1969 formatter-to-parser comparisons to zero differences.
+
+- Match Weka week-year precedence when `Y`/`w` resolves a date: lower-priority month and day fields no longer spuriously reject a valid week date; lock this behavior with Weka-derived regression cases.
+- Expand the independent Java 17 / Weka 3.8.6 date oracle to 2,858 deterministic field-order and accept/reject/epoch probes.
+
+- Align mixed 12/24-hour and day-of-year/day-of-month resolution with Weka 3.8.6 pattern-order semantics; expand independent date/calendar field-order probes.
+
+- Extend Gregorian date conversion through Java Date signed-long millisecond boundaries using 64-bit day arithmetic while retaining Weka-compatible IEEE-754 storage and Java saturation at Long.MAX_VALUE.
+- Expand the independent Java 17 / Weka date oracle to 2,677 parse/epoch probes including AD/BC, Java long millisecond boundaries, and pairwise calendar-field ordering patterns; pin exact formatter outputs at Long.MIN_VALUE, adjacent Double values, and the saturating positive endpoint.
+
+- Match Weka inclusive exact IEEE-754 millisecond endpoints (`-2^53` and `2^53`) for date parsing and formatting; add strict Java 17/Weka 3.8.6 boundary and valid-pattern probes.
+- Clarify strict date parsing and quoted-token escape behavior against Weka 3.8.6; record only verified compatibility boundaries.
+
 ## 0.2.4 — 2026-11-26
 
 - Correct release-state references in the README and compatibility matrix: 0.2.3 is published; preserve the explicitly documented remaining Weka compatibility limits.

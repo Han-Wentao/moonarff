@@ -58,10 +58,31 @@ test "zone-only date precision can be preserved by canonical offset" {
 }
 
 ///|
-test "exact millisecond boundaries are symmetric" {
-  for value in [-9007199254740991.0, 9007199254740991.0] {
-    let pattern = "yyyy-MM-dd G HH:mm:ss.SSS"
-    assert_eq(parse_date(format_date(value, pattern), pattern), value)
+test "exact millisecond boundaries match Weka formatting and parsing" {
+  let pattern = "yyyy-MM-dd G HH:mm:ss.SSS"
+  for
+    (value, expected) in [
+      (-9007199254740992.0, "283452-01-16 BC 15:00:59.008"),
+      (-9007199254740991.0, "283452-01-16 BC 15:00:59.009"),
+      (9007199254740991.0, "287396-10-12 AD 08:59:00.991"),
+      (9007199254740992.0, "287396-10-12 AD 08:59:00.992"),
+    ] {
+    assert_eq(format_date(value, pattern), expected)
+    assert_eq(parse_date(expected, pattern), value)
+  }
+}
+
+///|
+test "Weka Date formatting saturates Java long extrema exactly" {
+  let pattern = "yyyy-MM-dd G HH:mm:ss.SSS"
+  for
+    (value, expected) in [
+      (-9223372036854775808.0, "292269055-12-02 BC 16:47:04.192"),
+      (-9223372036854774784.0, "292269055-12-02 BC 16:47:05.216"),
+      (9223372036854774784.0, "292278994-08-17 AD 07:12:54.784"),
+      (9223372036854775808.0, "292278994-08-17 AD 07:12:55.807"),
+    ] {
+    assert_eq(format_date(value, pattern), expected)
   }
 }
 
@@ -156,4 +177,151 @@ test "Weka strict timezone normalization rechecks supplied fields" {
     }
     assert_true(rejected)
   }
+}
+
+///|
+test "Weka dates retain the declared 5000000-year calendar envelope" {
+  for
+    text in [
+      "285000-01-01 BC", "285000-12-31 BC", "285000-01-01 AD", "285000-12-31 AD",
+      "299999-01-01 BC", "299999-12-31 BC", "300000-01-01 BC", "300000-12-31 BC",
+      "300000-01-01 AD", "300000-12-31 AD", "1000000-01-01 BC", "1000000-01-01 AD",
+      "5000000-01-01 BC", "5000000-01-01 AD",
+    ] {
+    let value = parse_date(text, "yyyy-MM-dd G")
+    assert_eq(
+      parse_date(format_date(value, "yyyy-MM-dd G"), "yyyy-MM-dd G"),
+      value,
+    )
+  }
+}
+
+///|
+
+///|
+test "Weka day-of-year resolves the Gregorian cutover date" {
+  assert_eq(
+    parse_date("Oct/AD.1-Z.1582.278", "MMM/G.W-XXX.y.DDD"),
+    -12219292800000.0,
+  )
+}
+
+///|
+test "Weka day-of-year and day-of-month field precedence" {
+  // Java/Weka CalendarBuilder honors pattern stamp order: a later D can
+  // resolve the date after an earlier d, while a later d must agree with the
+  // default or explicit month.
+  assert_eq(parse_date("2024 29 060", "yyyy d D"), 1709164800000.0)
+  assert_eq(parse_date("2024 2 29 060", "yyyy M d D"), 1709164800000.0)
+  let conflict = try {
+    ignore(parse_date("2024 060 29", "yyyy D d"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(conflict)
+}
+
+///|
+test "Weka day-of-year resolves with the sole week-year fallback" {
+  // Java 17 / Weka 3.8.6 Attribute.parseDate; D is the later date selector.
+  assert_eq(parse_date("00.2038-1-5.Z.1", "mm.Y-D-u.XX.F"), 2145916800000.0)
+}
+
+///|
+test "Weka week-year day-of-year resolves with month and weekday selectors" {
+  assert_eq(
+    parse_date("Fri.1 +0000/2038:JanFriday", "E.D Z/Y:MMMEEEE"),
+    2145916800000.0,
+  )
+}
+
+///|
+test "Weka rejects week-year day-of-year with conflicting weekday" {
+  // Java 17 / Weka 3.8.6 rejects this BCE-boundary case: the matching
+  // prior calendar year would cross from week-year 1 AD into the BC era.
+  let rejected = try {
+    ignore(parse_date("00.1-3-1.Z.1", "mm.Y-D-u.XX.F"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(rejected)
+}
+
+///|
+test "Weka week-year and day-of-year need a later weekday selector" {
+  let rejected = try {
+    ignore(parse_date("2038-1-0:00", "Y-D-S:mm"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(rejected)
+  assert_eq(parse_date("59.1970-365-3.Z.5", "mm.Y-D-u.XX.F"), -82860000.0)
+  assert_eq(parse_date("5 1:2038.1", "u D:Y.d"), 2145916800000.0)
+}
+
+///|
+test "Weka rejects week-year and day-of-year during cutover year" {
+  let rejected = try {
+    ignore(parse_date("00.1582-278-5.Z.1", "mm.Y-D-u.XX.F"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(rejected)
+}
+
+///|
+test "Weka calendar selectors respect the 1582 cutover gap" {
+  let gap_rejected = try {
+    ignore(parse_date("Fri/10-1582", "E/L-y"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(gap_rejected)
+}
+
+///|
+test "Weka year-family selection follows parsed field stamps" {
+  assert_eq(parse_date("2024 2024 060", "Y y D"), 1709164800000.0)
+  assert_eq(parse_date("2024 060 2024", "Y D y"), 1709164800000.0)
+  assert_eq(parse_date("060 2024 2024", "D Y y"), 1709164800000.0)
+  let week_year_conflict = try {
+    ignore(parse_date("2024 2024 060", "y Y D"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(week_year_conflict)
+  let day_year_conflict = try {
+    ignore(parse_date("2024 060 4", "Y D u"))
+    false
+  } catch {
+    Invalid(_) => true
+    _ => false
+  }
+  assert_true(day_year_conflict)
+}
+
+///|
+test "Weka strict calendar selection honors week fields and explicit era" {
+  assert_eq(parse_date("5x01:Z", "W'x'ww:XX"), -345600000.0)
+  assert_eq(parse_date("5923/5:1", "mmH/W:w"), -259260000.0)
+  let era_conflict = try {
+    ignore(parse_date("01x196923 AD-23", "ww'x'yHH G-H"))
+    false
+  } catch {
+    ArffError::Invalid(_) => true
+    _ => false
+  }
+  assert_true(era_conflict)
 }

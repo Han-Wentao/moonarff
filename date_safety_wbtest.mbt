@@ -304,6 +304,38 @@ test "week-year field overrides older calendar year" {
 }
 
 ///|
+test "selected week-year ignores lower-priority month and day fields" {
+  assert_eq(
+    format_date(parse_date("2023 10 8", "Y M w"), "yyyy-MM-dd"),
+    "2023-02-19",
+  )
+  assert_eq(
+    format_date(parse_date("2023 28 8", "Y d w"), "yyyy-MM-dd"),
+    "2023-02-19",
+  )
+  assert_eq(
+    format_date(parse_date("2024 9 29", "Y w d"), "yyyy-MM-dd"),
+    "2024-02-25",
+  )
+}
+
+///|
+test "Weka week-year combination honors matching day-of-year and week selectors" {
+  assert_eq(parse_date("4.52024:12-12.09", "u.Fy:HH-H.ww"), 1709208000000.0)
+  assert_eq(parse_date("9/60 2024/4/February", "w/D Y/u/MMMM"), 1709164800000.0)
+  assert_eq(parse_date("09x202412 AD-12", "ww'x'yHH G-H"), -62099352000000.0)
+  assert_true(
+    try {
+      ignore(parse_date("2024:29:9x20245", "yyyy:dd:w'x'YF"))
+      false
+    } catch {
+      ArffError::Invalid(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "abbreviated year pivot compares month day time and timezone" {
   let start = parse_date(
     "1946-11-25T12:30:15.123Z", "yyyy-MM-dd'T'HH:mm:ss.SSSX",
@@ -395,4 +427,78 @@ test "date years beyond four digits remain exact through epoch milliseconds" {
   }
   let bc = parse_date("280000-01-01 BC", "yyyy-MM-dd G")
   assert_eq(format_date(bc, "yyyy-MM-dd G"), "280000-01-01 BC")
+}
+
+///|
+test "Weka DecimalFormat Unicode decimal digits and signed zero" {
+  // Java 17 DecimalFormat's Character.digit(char, 10) accepts these BMP
+  // Unicode decimal digit blocks for Locale.US date fields.
+  let zeroes : Array[UInt16] = [
+    0x0030, 0x0660, 0x06F0, 0x07C0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6,
+    0x0C66, 0x0CE6, 0x0D66, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0x1090, 0x17E0, 0x1810,
+    0x1946, 0x19D0, 0x1A80, 0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0,
+    0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0, 0xFF10,
+  ]
+  for zero in zeroes {
+    let text = StringBuilder()
+    for digit in [2, 0, 2, 4] {
+      text.write_char((zero.to_int() + digit).unsafe_to_char())
+    }
+    text.write_char('-')
+    for digit in [0, 2] {
+      text.write_char((zero.to_int() + digit).unsafe_to_char())
+    }
+    text.write_char('-')
+    for digit in [2, 9] {
+      text.write_char((zero.to_int() + digit).unsafe_to_char())
+    }
+    assert_eq(parse_date(text.to_string(), "yyyy-MM-dd"), 1709164800000.0)
+  }
+  assert_eq(
+    parse_date("2024-02-29 ١٢:٣٤:٥٦.٧٨٩", "yyyy-MM-dd HH:mm:ss.SSS"),
+    1709210096789.0,
+  )
+  assert_eq(
+    parse_date("2024-02-29 -0:-0:-0.-0", "yyyy-MM-dd HH:mm:ss.SSS"),
+    1709164800000.0,
+  )
+  for
+    (text, pattern) in [
+      ("-1-01-01", "yyyy-MM-dd"),
+      ("2024-01--1", "yyyy-MM-dd"),
+      ("2024-01-01 -1:00:00", "yyyy-MM-dd HH:mm:ss"),
+    ] {
+    assert_true(
+      try {
+        ignore(parse_date(text, pattern))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+}
+
+///|
+test "date calendar covers Java long millisecond endpoints" {
+  let pattern = "yyyy-MM-dd G HH:mm:ss.SSS"
+  for
+    (text, want) in [
+      ("292269055-12-02 BC 16:47:04.192", "292269055-12-02 BC 16:47:04.192"),
+      ("285190822-08-22 BC 08:00:00.000", "285190822-08-22 BC 08:00:00.000"),
+      ("285200616-07-24 AD 16:00:00.000", "285200616-07-24 AD 16:00:00.000"),
+      ("292278994-08-17 AD 07:12:55.806", "292278994-08-17 AD 07:12:55.807"),
+    ] {
+    let value = parse_date(text, pattern)
+    assert_eq(format_date(value, pattern), want)
+  }
+  assert_true(
+    try {
+      ignore(parse_date("292278995-01-01 AD", "yyyy-MM-dd G"))
+      false
+    } catch {
+      ArffError::Invalid(_) => true
+      _ => false
+    },
+  )
 }
