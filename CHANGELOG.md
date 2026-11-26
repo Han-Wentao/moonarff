@@ -1,3 +1,7 @@
+## 0.2.4 — 2026-11-26
+
+- Correct release-state references in the README and compatibility matrix: 0.2.3 is published; preserve the explicitly documented remaining Weka compatibility limits.
+
 ## 0.2.3 — 2026-11-26
 
 - Match strict Weka timezone normalization across 618 English names and historical/modern transitions; compare all 31500 broad date, clock, boundary and repeated-zone probes against Java 17.0.2 / Weka 3.8.6. Pin CI to the exact Java oracle runtime and add regression cases for historical offsets, transition gaps, explicit daylight labels, and rejected overlaps.
