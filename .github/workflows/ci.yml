@@ -27,7 +27,7 @@ jobs:
         run: |
           moon version --all
           actual="$(moonc -v)"
-          [[ "$actual" == "moonc v${MOONBIT_INSTALL_VERSION} ("* ]] || {
+          [[ "$actual" == "v${MOONBIT_INSTALL_VERSION} ("* ]] || {
             echo "Unexpected compiler: $actual" >&2
             exit 1
           }
@@ -67,7 +67,7 @@ jobs:
         run: |
           moon version --all
           actual="$(moonc -v)"
-          [[ "$actual" == "moonc v${MOONBIT_INSTALL_VERSION} ("* ]] || {
+          [[ "$actual" == "v${MOONBIT_INSTALL_VERSION} ("* ]] || {
             echo "Unexpected compiler: $actual" >&2
             exit 1
           }
