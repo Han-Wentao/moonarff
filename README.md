@@ -1,17 +1,17 @@
 # MoonARFF
 
-MoonARFF 是 MoonBit 实现的 ARFF 格式库，用于 Weka 数据交换、数据接入和多实例数据处理。当前发布版本为 0.2.7；0.2.6 修复了经独立 Weka 对照发现的年周、年内日序与月内周字段冲突，并扩展日期字段组合差分测试；0.2.7 更正了上一版 README 中过期的发布版本号。Weka 日期兼容矩阵仍有尚未覆盖的模式与地区边界。项目支持日期、嵌套关系、实例权重与真正增量流式读写。运行时不依赖 Java、Python 或 Weka。
+MoonARFF 是 MoonBit 实现的 ARFF 格式库，用于 Weka 数据交换、数据接入和多实例数据处理。当前发布版本为 0.2.8；本版升级至 MoonBit 1.0.0-rc1 工具链，并在 CI 中校验实际编译器版本。保留此前经独立 Weka 对照修复的日期字段语义及其回归测试。Weka 日期兼容矩阵仍有尚未覆盖的模式与地区边界。项目支持日期、嵌套关系、实例权重与真正增量流式读写。运行时不依赖 Java、Python 或 Weka。
 
 **最终目标是完整兼容 Weka ARFF 格式，包括日期格式及其他必要语义。** 当前版本按可核验的兼容矩阵逐步交付，让 MoonBit 程序保留模式、缺失值、日期时间戳、关系值和权重，再交给下游处理；尚未覆盖的格式语义仍在目标内。列变换、统计和特征编码是辅助功能。英文时区名称解析使用 Java 17.0.2/tzdb 2021e 历史规则，并由 618 个名称、31,500 个独立 Weka 日期/转换/重复字段探针交叉核验；该矩阵不等于所有格式和 locale 的穷尽证明。当前覆盖、已知边界与验收方法见 [格式兼容矩阵](docs/compatibility.md)。
 
 ## 安装与快速开始
 
-需要 `moonc >= 0.10.22`。本版本使用 `moonc 0.10.22+124d61d05` 验证，CI 固定同一工具链。检查与构建覆盖 wasm-gc、wasm、js、native；测试和示例在 wasm-gc、js、Linux native 执行。Windows native 还需要本机 C 工具链，不能仅凭 MoonBit 安装保证可运行。
+需要 `moonc >= 1.0.0-rc1`。本版本使用 `moonc 1.0.0-rc1+3c0520448`（`moon 0.1.20261126`）验证，CI 固定同一工具链并断言实际 `moonc -v` 输出。检查与构建覆盖 wasm-gc、wasm、js、native；测试和示例在 wasm-gc、js、Linux native 执行。Windows native 还需要本机 C 工具链，不能仅凭 MoonBit 安装保证可运行。
 
 ```sh
 moon new arff_consumer
 cd arff_consumer
-moon add Han-Wentao/moonarff@0.2.7
+moon add Han-Wentao/moonarff@0.2.8
 ```
 
 在使用它的包的 `moon.pkg` 中添加：
@@ -41,7 +41,7 @@ moon run . --target js
 
 ## 格式支持
 
-| 能力 | 0.2.7 交付行为（含 0.2.6 日期修复） |
+| 能力 | 0.2.8 交付行为（含 0.2.6 日期修复） |
 | --- | --- |
 | Numeric / Real / Integer | Weka 数值语法及 Double 表示；密集与稀疏读写，保留负零；NaN 数值按缺失处理 |
 | Nominal | 有序声明域，未观察到的类别也保留；字面量 `'?'` 与缺失不同 |
